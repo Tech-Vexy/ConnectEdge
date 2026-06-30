@@ -1,0 +1,25 @@
+# Proxim Verification Worker — ZK identity OTP issuance + badge signing
+# Deploy separately: wrangler deploy --config wrangler.verify.toml
+name = "proxim-verify"
+main = "verify-worker.ts"
+compatibility_date = "2024-09-01"
+
+[[kv_namespaces]]
+binding  = "VERIFY_STORE"
+id       = "REPLACE_WITH_YOUR_VERIFY_KV_NAMESPACE_ID"
+
+[vars]
+PROXIM_FROM_EMAIL = "verify@proxim.app"
+
+# Secrets — set with:
+#   wrangler secret put WORKER_SIGNING_SECRET --config wrangler.verify.toml
+#   wrangler secret put SENDGRID_API_KEY      --config wrangler.verify.toml
+#
+# Generate WORKER_SIGNING_SECRET (32-byte ed25519 seed, hex-encoded):
+#   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+#
+# IMPORTANT: back this seed up securely. If lost, all issued badges become
+# unverifiable and every verified user must re-verify.
+
+[limits]
+cpu_ms = 50

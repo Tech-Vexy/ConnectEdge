@@ -1,0 +1,108 @@
+{
+  "expo": {
+    "name": "ConnectEdge",
+    "slug": "connectedge",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "connectedge",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#0D0D0F"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.connectedge.app",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Proxim uses Bluetooth to discover nearby people without GPS.",
+        "NSBluetoothPeripheralUsageDescription": "Proxim broadcasts a privacy-preserving signal so nearby users can find you.",
+        "NSLocalNetworkUsageDescription": "Proxim connects directly to nearby devices on your local network.",
+        "NSPhotoLibraryUsageDescription": "Proxim uses your photo library to share encrypted photos with matches.",
+        "NSCameraUsageDescription": "Proxim uses your camera to take photos to share with matches.",
+        "NSLocationWhenInUseUsageDescription": "Proxim uses your approximate area (~500m) to find people nearby on different networks. Exact location is never stored or transmitted.",
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "proxim-relay-poll"
+        ],
+        "UIBackgroundModes": [
+          "fetch",
+          "bluetooth-central",
+          "bluetooth-peripheral",
+          "location"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.connectedge.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0D0D0F"
+      },
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_ADVERTISE",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_STATE",
+        "android.permission.CHANGE_NETWORK_STATE",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.CAMERA",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0D0D0F",
+          "sounds": [],
+          "iosDisplayInForeground": true
+        }
+      ],
+      [
+        "expo-background-fetch",
+        {
+          "taskNames": [
+            "connectedge-relay-poll"
+          ]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Proxim uses your photo library to share encrypted photos with matches.",
+          "cameraPermission": "Proxim uses your camera to take photos to share with matches."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {}
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "3b98fbf5-34c6-4b46-8768-6bab4852739d"
+      }
+    },
+    "owner": "tech-vexy"
+  }
+}
