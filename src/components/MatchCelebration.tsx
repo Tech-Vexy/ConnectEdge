@@ -3,9 +3,10 @@
 // Full-screen overlay — two avatar circles collide, "It's a Match!" text,
 // two CTA buttons: Send Message / Keep Swiping.
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useMemo } from 'react'
 import {
-  View, Text, StyleSheet, Pressable, Dimensions, Modal,
+  View, Text, StyleSheet, Pressable, Modal,
+  useWindowDimensions,
 } from 'react-native'
 import Animated, {
   useSharedValue, useAnimatedStyle,
@@ -15,31 +16,13 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient'
 import { colors, typography, fontSizes, spacing, radius, gradients } from '../theme'
 import type { Match } from '../lib/types'
-
-const { width: W, height: H } = Dimensions.get('window')
+import { peerGradient } from '../lib/peer-gradient'
 
 interface Props {
   match:       Match | null
   myName:      string
   onMessage:   () => void
   onKeepSwiping: () => void
-}
-
-// Same deterministic gradient as SwipeCard
-function peerGradient(peerId: string): [string, string] {
-  const PALETTES: [string, string][] = [
-    ['#667eea', '#764ba2'], ['#f093fb', '#f5576c'],
-    ['#4facfe', '#00f2fe'], ['#43e97b', '#38f9d7'],
-    ['#fa709a', '#fee140'], ['#a18cd1', '#fbc2eb'],
-    ['#ffecd2', '#fcb69f'], ['#ff9a9e', '#fecfef'],
-    ['#a1c4fd', '#c2e9fb'], ['#fddb92', '#d1fdff'],
-  ]
-  let hash = 0
-  for (let i = 0; i < peerId.length; i++) {
-    hash = ((hash << 5) - hash) + peerId.charCodeAt(i)
-    hash |= 0
-  }
-  return PALETTES[Math.abs(hash) % PALETTES.length]
 }
 
 function Avatar({ name, peerId, side }: { name: string; peerId: string; side: 'left' | 'right' }) {
@@ -73,6 +56,13 @@ function Avatar({ name, peerId, side }: { name: string; peerId: string; side: 'l
 }
 
 export function MatchCelebration({ match, myName, onMessage, onKeepSwiping }: Props) {
+  const { width, height } = useWindowDimensions()
+  const particles = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
+    top:    (i * 0.083 * height) % height,
+    left:   ((i * 73 + 17) % width),
+    size:   4 + (i % 3) * 4,
+    opacity: 0.15 + (i % 4) * 0.08,
+  })), [width, height])
   const titleOpacity   = useSharedValue(0)
   const titleTranslate = useSharedValue(24)
   const ctaOpacity     = useSharedValue(0)
@@ -101,18 +91,18 @@ export function MatchCelebration({ match, myName, onMessage, onKeepSwiping }: Pr
           style={StyleSheet.absoluteFill}
         />
 
-        {/* Particle dots — static decorative circles */}
-        {[...Array(12)].map((_, i) => (
+        {/* Particle dots — deterministic decorative circles */}
+        {particles.map((p, i) => (
           <View
             key={i}
             style={[
               styles.particle,
               {
-                top:   Math.random() * H,
-                left:  Math.random() * W,
-                width:  4 + (i % 3) * 4,
-                height: 4 + (i % 3) * 4,
-                opacity: 0.15 + (i % 4) * 0.08,
+                top:    p.top,
+                left:   p.left,
+                width:  p.size,
+                height: p.size,
+                opacity: p.opacity,
               },
             ]}
           />
@@ -141,6 +131,7 @@ export function MatchCelebration({ match, myName, onMessage, onKeepSwiping }: Pr
             <Pressable
               style={styles.messageBtn}
               onPress={onMessage}
+              accessibilityLabel="Send a message"
             >
               <Text style={styles.messageBtnText}>Send a Message</Text>
             </Pressable>
@@ -148,6 +139,7 @@ export function MatchCelebration({ match, myName, onMessage, onKeepSwiping }: Pr
             <Pressable
               style={styles.keepSwipingBtn}
               onPress={onKeepSwiping}
+              accessibilityLabel="Keep swiping"
             >
               <Text style={styles.keepSwipingText}>Keep Swiping</Text>
             </Pressable>

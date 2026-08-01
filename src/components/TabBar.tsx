@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useStore }          from '../store'
 import { colors, typography, fontSizes, spacing } from '../theme'
 
-export type TabId = 'discover' | 'matches' | 'messages' | 'profile'
+export type TabId = 'feed' | 'discover' | 'matches' | 'messages' | 'hubs' | 'profile'
 
 interface Tab {
   id:     TabId
@@ -19,9 +19,11 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
+  { id: 'feed',      label: 'Pulse',    icon: (a) => a ? '⚡' : '⚡' },
   { id: 'discover',  label: 'Discover', icon: (a) => a ? '◈' : '◇' },
   { id: 'matches',   label: 'Matches',  icon: (a) => a ? '♥' : '♡' },
-  { id: 'messages',  label: 'Messages', icon: (a) => a ? '💬' : '💬' },
+  { id: 'messages',  label: 'Chats',    icon: (a) => a ? '💬' : '💬' },
+  { id: 'hubs',      label: 'Hubs',     icon: (a) => a ? '🏰' : '🏰' },
   { id: 'profile',   label: 'Profile',  icon: (a) => a ? '●' : '○' },
 ]
 
@@ -33,14 +35,15 @@ interface Props {
 export function TabBar({ active, onChange }: Props) {
   const insets       = useSafeAreaInsets()
   const unreadMatches = useStore(s => s.unreadMatches)
+  const myPeerId      = useStore(s => s.myPeerId)
   const matches       = useStore(s => s.matches)
   const messages      = useStore(s => s.messages)
 
   // Count unread messages across all threads
   const unreadMessages = Array.from(messages.entries()).reduce((total, [peerId, msgs]) => {
-    // Unread = last message is from the other person
+    // Unread = last message is from the other person (not me)
     const last = msgs[msgs.length - 1]
-    return last && last.from !== '' ? total + 1 : total
+    return last && last.from !== myPeerId ? total + 1 : total
   }, 0)
 
   const badges: Partial<Record<TabId, number>> = {
@@ -100,7 +103,8 @@ const styles = StyleSheet.create({
     flex:           1,
     alignItems:     'center',
     gap:            3,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.md,
+    minHeight:      44,
   },
   iconWrap: {
     position: 'relative',

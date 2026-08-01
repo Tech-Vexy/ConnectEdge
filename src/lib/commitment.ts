@@ -88,7 +88,7 @@ function buildPayload(
   return concatBytes(part1, part2, nonce)
 }
 
-async function sha256Hex(data: Uint8Array): Promise<string> {
+export async function sha256Hex(data: Uint8Array): Promise<string> {
   const hashBytes = await ExpoCrypto.digest(
     ExpoCrypto.CryptoDigestAlgorithm.SHA256,
     data as any,

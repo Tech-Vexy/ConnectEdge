@@ -102,6 +102,186 @@ const TAG_STARTERS: Record<string, string[]> = {
     "Founder energy or would you rather build inside something?",
     "What problem do you keep thinking should be solved?",
   ],
+  fitness: [
+    "What's your current fitness goal?",
+    "Gym rat or outdoor workouts?",
+    "What got you into fitness?",
+  ],
+  nature: [
+    "What's your favorite way to be outside?",
+    "Beach or mountains kind of person?",
+    "Best nature spot you've been to lately?",
+  ],
+  foodie: [
+    "What's your go-to comfort food?",
+    "Cooking at home or trying new restaurants?",
+    "Best meal you've had recently?",
+  ],
+  pets: [
+    "Dog or cat person — or both?",
+    "What's your pet's personality like?",
+    "Any funny pet stories?",
+  ],
+  movies: [
+    "What's a movie you can watch over and over?",
+    "Cinema or streaming at home?",
+    "What genre do you gravitate toward?",
+  ],
+  podcasts: [
+    "What podcasts are you into right now?",
+    "True crime or something lighter?",
+    "Any podcast recommendations?",
+  ],
+  writing: [
+    "What do you like to write?",
+    "Fiction or nonfiction?",
+    "What are you working on?",
+  ],
+  crafts: [
+    "What kind of crafts do you do?",
+    "How did you get into it?",
+    "What's your latest project?",
+  ],
+  science: [
+    "What area of science fascinates you?",
+    "Any recent scientific discoveries that caught your attention?",
+    "Sci-fi or hard science kind of person?",
+  ],
+  history: [
+    "What historical period interests you most?",
+    "Any favorite historical figures?",
+    "Documentaries or historical fiction?",
+  ],
+  languages: [
+    "What languages do you speak?",
+    "What are you learning right now?",
+    "Best way you've found to learn a language?",
+  ],
+  meditation: [
+    "How did you get into meditation?",
+    "Morning or evening practice?",
+    "Apps or guided vs self-directed?",
+  ],
+  camping: [
+    "Glamping or rough it kind of camper?",
+    "Best camping spot you've been to?",
+    "What's your essential camping gear?",
+  ],
+  cycling: [
+    "Road or mountain biking?",
+    "What's your favorite route?",
+    "How did you get into cycling?",
+  ],
+  swimming: [
+    "Pool or open water?",
+    "What's your favorite swimming spot?",
+    "Laps or just for fun?",
+  ],
+  running: [
+    "What's your running routine?",
+    "5K, 10K, or marathon kind of runner?",
+    "Treadmill or outdoors?",
+  ],
+  'board games': [
+    "What's your favorite board game?",
+    "Strategy or party games?",
+    "Any game recommendations?",
+  ],
+  karaoke: [
+    "What's your go-to karaoke song?",
+    "Do you perform or just watch?",
+    "Best karaoke night you've had?",
+  ],
+  concerts: [
+    "Last concert you went to?",
+    "Small venues or big stadiums?",
+    "What's on your concert bucket list?",
+  ],
+  museums: [
+    "What kind of museums do you like?",
+    "Art, history, or science?",
+    "Best museum you've visited?",
+  ],
+  theater: [
+    "Plays or musicals?",
+    "Community theater or Broadway?",
+    "Last show you saw?",
+  ],
+  comedy: [
+    "Stand-up or sketch comedy?",
+    "Any comedians you're into?",
+    "Best comedy show you've seen?",
+  ],
+  astrology: [
+    "What's your sign — and do you believe in it?",
+    "Do you read your horoscope?",
+    "Big or small astrology energy?",
+  ],
+  gardening: [
+    "What do you grow?",
+    "Indoor plants or outdoor garden?",
+    "How did you get into gardening?",
+  ],
+  DIY: [
+    "What kind of DIY projects do you do?",
+    "What's your latest project?",
+    "Any DIY fails you can laugh about now?",
+  ],
+  fashion: [
+    "What's your style vibe?",
+    "Thrifting or retail?",
+    "Any fashion icons?",
+  ],
+  sustainability: [
+    "What sustainability practices do you follow?",
+    "What eco-friendly change have you made recently?",
+    "Big or small sustainability goals?",
+  ],
+  vegan: [
+    "How long have you been vegan?",
+    "What's your favorite vegan dish?",
+    "Any vegan restaurant recommendations?",
+  ],
+  'craft beer': [
+    "What's your favorite craft beer?",
+    "IPAs or something else?",
+    "Any brewery recommendations?",
+  ],
+  wine: [
+    "Red, white, or rosé?",
+    "Any wine regions you love?",
+    "What's your go-to wine?",
+  ],
+  tea: [
+    "What kind of tea do you drink?",
+    "Coffee or tea person?",
+    "Any tea recommendations?",
+  ],
+  anime: [
+    "What anime are you watching?",
+    "Shonen or slice of life?",
+    "Any anime recommendations?",
+  ],
+  comics: [
+    "Marvel or DC?",
+    "What comics are you reading?",
+    "Graphic novels or single issues?",
+  ],
+  'sci-fi': [
+    "Hard sci-fi or space opera?",
+    "What sci-fi are you into?",
+    "Any sci-fi recommendations?",
+  ],
+  fantasy: [
+    "High fantasy or urban fantasy?",
+    "What fantasy series do you love?",
+    "Any fantasy recommendations?",
+  ],
+  horror: [
+    "Psychological or gore kind of horror?",
+    "What horror movies do you like?",
+    "Any horror recommendations?",
+  ],
 }
 
 // ─── Intent-based starters (when intent scores align) ─────────────────────────

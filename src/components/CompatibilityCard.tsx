@@ -3,10 +3,10 @@
 // Displays: shared interests, compatibility score breakdown,
 // 3 icebreaker options the user can tap to send as first message.
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   View, Text, StyleSheet, Pressable, ScrollView,
-  Dimensions, Modal,
+  Dimensions, Modal, Image,
 } from 'react-native'
 import Animated, {
   useSharedValue, useAnimatedStyle,
@@ -18,30 +18,16 @@ import {
   generateIcebreakers, compatibilitySummary,
   type Icebreaker,
 }                            from '../lib/icebreakers'
+import { scorePeer }         from '../lib/matching'
 import { SCORE_DIMS }        from '../lib/types'
 import type { Match }        from '../lib/types'
+import { peerGradient }      from '../lib/peer-gradient'
 import {
   colors, typography, fontSizes,
   spacing, radius, cardShadow, gradients,
 } from '../theme'
 
 const { width: W } = Dimensions.get('window')
-
-function peerGradient(peerId: string): [string, string] {
-  const PALETTES: [string, string][] = [
-    ['#667eea','#764ba2'],['#f093fb','#f5576c'],
-    ['#4facfe','#00f2fe'],['#43e97b','#38f9d7'],
-    ['#fa709a','#fee140'],['#a18cd1','#fbc2eb'],
-    ['#ffecd2','#fcb69f'],['#ff9a9e','#fecfef'],
-    ['#a1c4fd','#c2e9fb'],['#fddb92','#d1fdff'],
-  ]
-  let hash = 0
-  for (let i = 0; i < peerId.length; i++) {
-    hash = ((hash << 5) - hash) + peerId.charCodeAt(i)
-    hash |= 0
-  }
-  return PALETTES[Math.abs(hash) % PALETTES.length]
-}
 
 interface Props {
   match:       Match
@@ -83,6 +69,15 @@ export function CompatibilityCard({ match, visible, onSendMsg, onSkip }: Props) 
   const score        = match.compatibilityScore ?? 0
   const summary      = compatibilitySummary(sharedTags, score, match.displayName)
 
+  // Compute deterministic per-dimension scores from the scoring engine
+  const dimBreakdown = useMemo(() => {
+    if (!profile) return new Map<string, number>()
+    const theirBroadcast = peers.get(match.peerId)
+    if (!theirBroadcast) return new Map<string, number>()
+    const result = scorePeer(profile, theirBroadcast)
+    return new Map(result.breakdown.map(b => [b.key, b.dimScore]))
+  }, [match.peerId, profile, peers])
+
   const handleSend = (text: string) => {
     setSelected(text)
     setTimeout(() => {
@@ -104,17 +99,21 @@ export function CompatibilityCard({ match, visible, onSendMsg, onSkip }: Props) 
 
             {/* Match avatar + name */}
             <View style={styles.matchRow}>
-              <LinearGradient colors={[a, b]} style={styles.avatar} start={{x:0,y:0}} end={{x:1,y:1}}>
-                <Text style={styles.avatarInitial}>
-                  {match.displayName.slice(0, 1).toUpperCase()}
-                </Text>
-              </LinearGradient>
+              {match.photoUri ? (
+                <Image source={{ uri: match.photoUri }} style={styles.avatar} />
+              ) : (
+                <LinearGradient colors={[a, b]} style={styles.avatar} start={{x:0,y:0}} end={{x:1,y:1}}>
+                  <Text style={styles.avatarInitial}>
+                    {match.displayName.slice(0, 1).toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              )}
               <View style={styles.matchInfo}>
                 <Text style={styles.matchName}>{match.displayName}</Text>
                 <Text style={styles.matchSummary}>{summary}</Text>
               </View>
               <View style={[styles.scorePill, {
-                backgroundColor: score >= 75 ? colors.like + '22' : colors.surfaceHigh,
+                backgroundColor: score >= 75 ? colors.likeAlpha22 : colors.surfaceHigh,
                 borderColor:     score >= 75 ? colors.like : colors.border,
               }]}>
                 <Text style={[styles.scoreNum, {
@@ -143,13 +142,12 @@ export function CompatibilityCard({ match, visible, onSendMsg, onSkip }: Props) 
               <Text style={styles.sectionLabel}>Compatibility</Text>
               <View style={styles.dimList}>
                 {SCORE_DIMS.map(dim => {
-                  // Approximate per-dimension score from the overall score
-                  const fill = Math.min(100, score + (Math.random() * 20 - 10))
+                  const fill = dimBreakdown.get(dim.key) ?? score
                   return (
                     <View key={dim.key} style={styles.dimRow}>
                       <Text style={styles.dimLabel}>{dim.label}</Text>
                       <View style={styles.dimBarWrap}>
-                        <View style={[styles.dimBar, { width: `${fill}%` as any }]} />
+                        <View style={[styles.dimBar, { width: `${fill}%` }]} />
                       </View>
                       <Text style={styles.dimPct}>{Math.round(fill)}%</Text>
                     </View>
@@ -174,6 +172,7 @@ export function CompatibilityCard({ match, visible, onSendMsg, onSkip }: Props) 
                       pressed && { opacity: 0.75 },
                     ]}
                     onPress={() => handleSend(ib.text)}
+                    accessibilityLabel={`Send icebreaker: ${ib.text}`}
                   >
                     <Text style={[
                       styles.icebreakerText,
@@ -192,7 +191,7 @@ export function CompatibilityCard({ match, visible, onSendMsg, onSkip }: Props) 
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Pressable style={styles.openChatBtn} onPress={() => onSendMsg('')}>
+            <Pressable style={styles.openChatBtn} onPress={() => onSendMsg('')} accessibilityLabel="Open chat">
               <LinearGradient
                 colors={gradients.brand}
                 start={{x:0,y:0}} end={{x:1,y:0}}
@@ -201,7 +200,7 @@ export function CompatibilityCard({ match, visible, onSendMsg, onSkip }: Props) 
                 <Text style={styles.openChatText}>Open chat</Text>
               </LinearGradient>
             </Pressable>
-            <Pressable style={styles.skipBtn} onPress={onSkip}>
+            <Pressable style={styles.skipBtn} onPress={onSkip} accessibilityLabel="Maybe later">
               <Text style={styles.skipText}>Maybe later</Text>
             </Pressable>
           </View>
@@ -301,9 +300,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical:   4,
     borderRadius:      radius.full,
-    backgroundColor:   colors.pulse + '18',
+    backgroundColor:   colors.pulseAlpha18,
     borderWidth:       1,
-    borderColor:       colors.pulse + '44',
+    borderColor:       colors.pulseAlpha44,
   },
   sharedTagText: {
     ...typography.label,
@@ -357,7 +356,7 @@ const styles = StyleSheet.create({
   },
   icebreakerSelected: {
     borderColor:     colors.pulse,
-    backgroundColor: colors.pulse + '14',
+    backgroundColor: colors.pulseAlpha14,
   },
   icebreakerText: {
     ...typography.body,

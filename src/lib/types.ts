@@ -1,4 +1,6 @@
-// Core data types for Proxim
+// Core data types for ConnectEdge
+
+export type SocialMode = 'dating' | 'friends' | 'networking' | 'all'
 
 export interface UserProfile {
   // Identity — generated on first launch, never leaves device
@@ -11,8 +13,9 @@ export interface UserProfile {
   // Preference vector — what you want (normalised 0–1 internally)
   prefs: MatchPrefs
 
-  // What we broadcast publicly (subset of profile)
-  // Photos are NOT in the broadcast — only shared post-match as encrypted CID
+  // Social Platform properties
+  activeMode?: SocialMode
+  statusMessage?: string   // e.g. "Looking for a tennis partner!" or "Hacking on React Native"
 }
 
 export interface MatchPrefs {
@@ -21,6 +24,9 @@ export interface MatchPrefs {
   interestTags: string[]       // up to 8 tags selected from fixed taxonomy
   proximityWeight: number      // how much physical closeness matters 0–1
   valuesScore: number          // 0 = adventurous/spontaneous, 1 = stability/depth
+  activityLevel: number        // 0 = relaxed/low-energy, 1 = active/high-energy
+  communicationStyle: number    // 0 = direct/straightforward, 1 = thoughtful/reflective
+  socialPreference: number     // 0 = introvert/small groups, 1 = extrovert/large groups
 }
 
 // What gets gossiped over the mesh — public, signed, minimal
@@ -31,8 +37,14 @@ export interface PeerBroadcast {
   intentScore:   number
   interestTags:  string[]
   valuesScore:   number
+  activityLevel?:       number    // 0 = relaxed, 1 = active
+  communicationStyle?:  number    // 0 = direct, 1 = thoughtful
+  socialPreference?:    number    // 0 = introvert, 1 = extrovert
   seenAt:        number
   signalStrength?: number
+  // Social Platform broadcast fields
+  activeMode?:   SocialMode
+  statusMessage?: string
   // Verification badge fields — included only when verified
   verified?:     true
   institution?:  string
@@ -41,13 +53,58 @@ export interface PeerBroadcast {
   badgeExpiry?:  number   // unix ms
 }
 
+// ─── Social Feed, Hubs & Events ──────────────────────────────────────────────
+
+export interface SocialPost {
+  id:           string
+  authorPeerId: string
+  authorName:   string
+  content:      string
+  photoUri?:    string
+  timestamp:    number
+  likesCount:   number
+  likedByMe?:   boolean
+  tags:         string[]
+  hubId?:       string
+  mode?:        SocialMode
+  signature?:   string
+}
+
+export interface SocialHub {
+  id:          string
+  name:        string
+  description: string
+  icon:        string
+  category:    string
+  memberCount: number
+  isJoined?:   boolean
+  tags:        string[]
+}
+
+export interface SocialEvent {
+  id:              string
+  title:           string
+  description:     string
+  organizerPeerId: string
+  organizerName:   string
+  location:        string
+  dateStr:         string
+  category:        string
+  attendeesCount:  number
+  isRSVPed?:       boolean
+  gradient:        [string, string]
+}
+
 // Scoring dimensions with weights (must sum to 1.0)
 export const SCORE_DIMS = [
-  { key: 'age',       weight: 0.20, label: 'Age range'  },
-  { key: 'interests', weight: 0.30, label: 'Interests'  },
-  { key: 'intent',    weight: 0.25, label: 'Intent'     },
-  { key: 'proximity', weight: 0.15, label: 'Proximity'  },
-  { key: 'values',    weight: 0.10, label: 'Values'     },
+  { key: 'age',       weight: 0.15, label: 'Age range'  },
+  { key: 'interests', weight: 0.25, label: 'Interests'  },
+  { key: 'intent',    weight: 0.20, label: 'Intent'     },
+  { key: 'proximity', weight: 0.12, label: 'Proximity'  },
+  { key: 'values',    weight: 0.08, label: 'Values'     },
+  { key: 'activity',  weight: 0.10, label: 'Activity'   },
+  { key: 'commStyle', weight: 0.06, label: 'Communication' },
+  { key: 'social',    weight: 0.04, label: 'Social'     },
 ] as const
 
 export const LIKE_THRESHOLD = 65   // score out of 100 to trigger commitment
@@ -66,10 +123,12 @@ export interface Match {
   displayName:      string
   matchedAt:        number
   streamId?:        string
+  photoUri?:        string      // profile photo URI (shared post-match)
   // Connection data — populated at match time from peer broadcast
   sharedTags:       string[]    // intersection of interestTags
   compatibilityScore: number    // 0–100
   icebreakerId?:    string      // selected starter from icebreakers.ts
+  connectionType?:  'match' | 'friend' | 'network'
 }
 
 // ─── Ads ─────────────────────────────────────────────────────────────────────
@@ -152,6 +211,14 @@ export const INTEREST_TAGS = [
   'music', 'hiking', 'film', 'cooking', 'travel', 'tech',
   'art', 'sports', 'reading', 'gaming', 'yoga', 'coffee',
   'photography', 'dancing', 'volunteering', 'startups',
+  'fitness', 'nature', 'foodie', 'pets', 'movies', 'podcasts',
+  'writing', 'crafts', 'science', 'history', 'languages',
+  'meditation', 'camping', 'cycling', 'swimming', 'running',
+  'board games', 'karaoke', 'concerts', 'museums', 'theater',
+  'comedy', 'astrology', 'gardening', 'DIY', 'fashion',
+  'sustainability', 'vegan', 'craft beer', 'wine', 'tea',
+  'anime', 'comics', 'sci-fi', 'fantasy', 'horror',
 ] as const
 
 export type InterestTag = typeof INTEREST_TAGS[number]
+

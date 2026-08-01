@@ -37,12 +37,30 @@ export function scorePeer(me: UserProfile, peer: PeerBroadcast): ScoreResult {
   // Values: absolute difference on 0–1 scale
   const valuesScore = 1 - Math.abs(my.valuesScore - peer.valuesScore)
 
+  // Activity: absolute difference on 0–1 scale (relaxed vs active)
+  const activityScore = peer.activityLevel != null
+    ? 1 - Math.abs(my.activityLevel - peer.activityLevel)
+    : 0.5
+
+  // Communication style: absolute difference on 0–1 scale (direct vs thoughtful)
+  const commStyleScore = peer.communicationStyle != null
+    ? 1 - Math.abs(my.communicationStyle - peer.communicationStyle)
+    : 0.5
+
+  // Social preference: absolute difference on 0–1 scale (introvert vs extrovert)
+  const socialScore = peer.socialPreference != null
+    ? 1 - Math.abs(my.socialPreference - peer.socialPreference)
+    : 0.5
+
   const dimValues: Record<string, number> = {
     age:       ageScore,
     interests: interestScore,
     intent:    intentScore,
     proximity: proximityScore,
     values:    valuesScore,
+    activity:  activityScore,
+    commStyle: commStyleScore,
+    social:    socialScore,
   }
 
   // Weighted squared distance — penalises large mismatches superlinearly

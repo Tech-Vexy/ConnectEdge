@@ -76,12 +76,12 @@ function splashSvg(w, h) {
         stroke="${ACCENT}" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
   <circle cx="${cx}" cy="${cy}" r="${r * 0.11}" fill="${WHITE}"/>
   <text x="${cx}" y="${cy + r * 1.7}" font-family="System" font-weight="300"
-        font-size="${r * 0.6}" fill="${WHITE}" text-anchor="middle" opacity="0.55">proxim</text>
+        font-size="${r * 0.6}" fill="${WHITE}" text-anchor="middle" opacity="0.55">ConnectEdge</text>
 </svg>`
 }
 
 async function generate() {
-  console.log('Generating Proxim assets…')
+  console.log('Generating ConnectEdge assets…')
 
   await sharp(Buffer.from(appIconSvg(1024)))
     .png().toFile(path.join(ASSETS, 'icon.png'))

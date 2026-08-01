@@ -21,18 +21,18 @@
 //                  Never sent anywhere automatically — user controls export.
 //
 // Persistence:
-//   blocked set       → SecureStore 'proxim_blocked_v1'      (Set<peerId>)
-//   not-interested    → SecureStore 'proxim_dismissed_v1'    (Set<peerId>)
-//   report log        → SecureStore 'proxim_reports_v1'      (ReportEntry[])
+//   blocked set       → SecureStore 'connectedge_blocked_v1'      (Set<peerId>)
+//   not-interested    → SecureStore 'connectedge_dismissed_v1'    (Set<peerId>)
+//   report log        → SecureStore 'connectedge_reports_v1'      (ReportEntry[])
 
 import * as SecureStore from 'expo-secure-store'
 import * as ExpoCrypto  from 'expo-crypto'
 import { uint8ArrayToHex } from './bytes'
 
 // Keys
-const KEY_BLOCKED    = 'proxim_blocked_v1'
-const KEY_DISMISSED  = 'proxim_dismissed_v1'
-const KEY_REPORTS    = 'proxim_reports_v1'
+const KEY_BLOCKED    = 'connectedge_blocked_v1'
+const KEY_DISMISSED  = 'connectedge_dismissed_v1'
+const KEY_REPORTS    = 'connectedge_reports_v1'
 
 export type SafetyLevel = 'blocked' | 'dismissed' | 'clear'
 
@@ -136,7 +136,7 @@ class SafetyRegistry {
     const peerIdHash = uint8ArrayToHex(new Uint8Array(hashBuf)).slice(0, 16)
 
     const entry: ReportEntry = {
-      id:         Math.random().toString(36).slice(2),
+      id:         uint8ArrayToHex(ExpoCrypto.getRandomBytes(16)),
       peerIdHash,
       ts:         Date.now(),
       note:       note.trim().slice(0, 500),
@@ -180,7 +180,7 @@ class SafetyRegistry {
     if (reports.length === 0) return 'No reports on file.'
 
     const lines = [
-      'Proxim Safety Report Export',
+      'ConnectEdge Safety Report Export',
       `Generated: ${new Date().toISOString()}`,
       `Total reports: ${reports.length}`,
       '',

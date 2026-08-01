@@ -1,6 +1,6 @@
-# Proxim Verification Worker — ZK identity OTP issuance + badge signing
+# ConnectEdge Verification Worker — ZK identity OTP issuance + badge signing
 # Deploy separately: wrangler deploy --config wrangler.verify.toml
-name = "proxim-verify"
+name = "connectedge-verify"
 main = "verify-worker.ts"
 compatibility_date = "2024-09-01"
 
@@ -9,7 +9,7 @@ binding  = "VERIFY_STORE"
 id       = "REPLACE_WITH_YOUR_VERIFY_KV_NAMESPACE_ID"
 
 [vars]
-PROXIM_FROM_EMAIL = "verify@proxim.app"
+CONNECTEDGE_FROM_EMAIL = "verify@connectedge.app"
 
 # Secrets — set with:
 #   wrangler secret put WORKER_SIGNING_SECRET --config wrangler.verify.toml
@@ -21,5 +21,5 @@ PROXIM_FROM_EMAIL = "verify@proxim.app"
 # IMPORTANT: back this seed up securely. If lost, all issued badges become
 # unverifiable and every verified user must re-verify.
 
-[limits]
-cpu_ms = 50
+# [limits]
+# cpu_ms = 50

@@ -1,4 +1,4 @@
-// Proxim v2 theme — Tinder-inspired, dark base, warm coral accent
+// ConnectEdge v2 theme — Tinder-inspired, dark base, warm coral accent
 // Cards are the primary canvas. Typography is confident. Gestures are physical.
 
 export const colors = {
@@ -44,6 +44,17 @@ export const colors = {
   overlay:       'rgba(0,0,0,0.55)',
   overlayStrong: 'rgba(0,0,0,0.80)',
   overlayCard:   'rgba(0,0,0,0.0)',
+
+  // Semi-transparent variants (replaces fragile hex+alpha concatenation)
+  pulseAlpha10:  'rgba(255,68,88,0.06)',
+  pulseAlpha18:  'rgba(255,68,88,0.10)',
+  pulseAlpha14:  'rgba(255,68,88,0.08)',
+  pulseAlpha44:  'rgba(255,68,88,0.27)',
+  likeAlpha18:   'rgba(77,217,100,0.10)',
+  likeAlpha22:   'rgba(77,217,100,0.13)',
+  likeAlpha55:   'rgba(77,217,100,0.33)',
+  passAlpha18:   'rgba(255,59,48,0.10)',
+  passAlpha44:   'rgba(255,59,48,0.27)',
 } as const
 
 export const typography = {

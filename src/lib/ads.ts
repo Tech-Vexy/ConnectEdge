@@ -9,23 +9,23 @@
 //   - Tracked locally (impressions, taps, dismisses) — never transmitted
 //
 // Venue registration:
-//   Venues purchase a signed beacon config from Proxim (flat fee, no data).
+//   Venues purchase a signed beacon config from ConnectEdge (flat fee, no data).
 //   The config contains: adId, venueName, gradients, tags, radius, expiresAt.
-//   The beacon broadcasts this over gossipsub topic 'proxim:ads'.
-//   Signature is verified against Proxim's public key before display.
+//   The beacon broadcasts this over gossipsub topic 'connectedge:ads'.
+//   Signature is verified against ConnectEdge's public key before display.
 //
 // Privacy:
 //   - No user identifier ever reaches the advertiser
 //   - Tap on CTA opens a URL — standard browser, no custom tracking params added
 //   - Analytics are local-only counters reset on app clear
-//   - Ad content is signed by Proxim — venues can't inject arbitrary code
+//   - Ad content is signed by ConnectEdge — venues can't inject arbitrary code
 
 import * as SecureStore from 'expo-secure-store'
 import { Linking }      from 'react-native'
 import type { AdBroadcast, AdAnalytics, UserProfile, DeckItem, PeerBroadcast } from './types'
 
-const ANALYTICS_KEY  = 'proxim_ad_analytics_v1'
-const AD_TOPIC       = 'proxim:ads'
+const ANALYTICS_KEY  = 'connectedge_ad_analytics_v1'
+const AD_TOPIC       = 'connectedge:ads'
 const AD_POSITIONS   = [4, 9, 14, 19]   // 0-indexed positions in deck
 const AD_EXPIRY_BUFFER_MS = 5 * 60_000  // don't show ads expiring in < 5 min
 
@@ -85,7 +85,7 @@ export function buildDeck(
 
 /**
  * Parse a raw gossipsub message from the ads topic.
- * In production this would verify a signature from Proxim's signing key.
+ * In production this would verify a signature from ConnectEdge's signing key.
  * For MVP: basic schema validation only.
  */
 export function parseAdBroadcast(data: Uint8Array): AdBroadcast | null {

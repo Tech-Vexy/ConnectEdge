@@ -1,4 +1,4 @@
-// crypto.ts — full cryptographic layer for Proxim
+// crypto.ts — full cryptographic layer for ConnectEdge
 //
 // Uses libsodium-wrappers (NaCl primitives) for:
 //   - Box encryption  (crypto_box_seal)  — sealed messages to a public key
@@ -21,10 +21,10 @@ import {
 } from './biometrics'
 
 // Keys stored in SecureStore
-const KEY_ED_SECRET  = 'proxim_ed_secret_v1'   // ed25519 secret key (64 bytes)
-const KEY_ED_PUBLIC  = 'proxim_ed_public_v1'    // ed25519 public key (32 bytes)
-const KEY_X_SECRET   = 'proxim_x_secret_v1'    // X25519 secret key  (32 bytes)
-const KEY_X_PUBLIC   = 'proxim_x_public_v1'    // X25519 public key  (32 bytes)
+const KEY_ED_SECRET  = 'connectedge_ed_secret_v1'   // ed25519 secret key (64 bytes)
+const KEY_ED_PUBLIC  = 'connectedge_ed_public_v1'    // ed25519 public key (32 bytes)
+const KEY_X_SECRET   = 'connectedge_x_secret_v1'    // X25519 secret key  (32 bytes)
+const KEY_X_PUBLIC   = 'connectedge_x_public_v1'    // X25519 public key  (32 bytes)
 
 export interface KeyPair {
   edPublicKey:  Uint8Array   // ed25519 — for signing / PeerID
@@ -57,12 +57,12 @@ export async function loadOrCreateKeyPair(): Promise<KeyPair> {
   const authed = await authenticate('high')
   if (!authed) throw new Error('Biometric authentication required to access identity keys')
 
-  // Try to load existing — biometric SecureStore options enforce Keychain access control
+  // Try to load existing — use STANDARD options since we already authenticated above
   const [edPubHex, edSecHex, xPubHex, xSecHex] = await Promise.all([
-    SecureStore.getItemAsync(KEY_ED_PUBLIC, SECURE_STORE_BIOMETRIC_OPTIONS),
-    SecureStore.getItemAsync(KEY_ED_SECRET, SECURE_STORE_BIOMETRIC_OPTIONS),
-    SecureStore.getItemAsync(KEY_X_PUBLIC,  SECURE_STORE_BIOMETRIC_OPTIONS),
-    SecureStore.getItemAsync(KEY_X_SECRET,  SECURE_STORE_BIOMETRIC_OPTIONS),
+    SecureStore.getItemAsync(KEY_ED_PUBLIC, SECURE_STORE_STANDARD_OPTIONS),
+    SecureStore.getItemAsync(KEY_ED_SECRET, SECURE_STORE_STANDARD_OPTIONS),
+    SecureStore.getItemAsync(KEY_X_PUBLIC,  SECURE_STORE_STANDARD_OPTIONS),
+    SecureStore.getItemAsync(KEY_X_SECRET,  SECURE_STORE_STANDARD_OPTIONS),
   ])
 
   if (edPubHex && edSecHex && xPubHex && xSecHex) {
@@ -81,12 +81,12 @@ export async function loadOrCreateKeyPair(): Promise<KeyPair> {
   const xSecretKey = na.crypto_sign_ed25519_sk_to_curve25519(edKP.privateKey)
   const xPublicKey = na.crypto_scalarmult_base(xSecretKey)
 
-  // Persist to Keychain with biometric access control
+  // Persist to Keychain with STANDARD options (we already authenticated above)
   await Promise.all([
-    SecureStore.setItemAsync(KEY_ED_PUBLIC, uint8ArrayToHex(edKP.publicKey), SECURE_STORE_BIOMETRIC_OPTIONS),
-    SecureStore.setItemAsync(KEY_ED_SECRET, uint8ArrayToHex(edKP.privateKey), SECURE_STORE_BIOMETRIC_OPTIONS),
-    SecureStore.setItemAsync(KEY_X_PUBLIC,  uint8ArrayToHex(xPublicKey),      SECURE_STORE_BIOMETRIC_OPTIONS),
-    SecureStore.setItemAsync(KEY_X_SECRET,  uint8ArrayToHex(xSecretKey),      SECURE_STORE_BIOMETRIC_OPTIONS),
+    SecureStore.setItemAsync(KEY_ED_PUBLIC, uint8ArrayToHex(edKP.publicKey), SECURE_STORE_STANDARD_OPTIONS),
+    SecureStore.setItemAsync(KEY_ED_SECRET, uint8ArrayToHex(edKP.privateKey), SECURE_STORE_STANDARD_OPTIONS),
+    SecureStore.setItemAsync(KEY_X_PUBLIC,  uint8ArrayToHex(xPublicKey),      SECURE_STORE_STANDARD_OPTIONS),
+    SecureStore.setItemAsync(KEY_X_SECRET,  uint8ArrayToHex(xSecretKey),      SECURE_STORE_STANDARD_OPTIONS),
   ])
 
   return {
@@ -188,6 +188,20 @@ export async function openBox(
  * Authenticated box — encrypt with sender/recipient keypair.
  * Used for direct stream messages (provides sender identity + encryption).
  *
+ * FORWARD SECRECY NOTE:
+ *   Static X25519 keys provide no forward secrecy — compromising a device's
+ *   xSecretKey decrypts all past and future messages.
+ *
+ *   Upgrade path (not yet implemented): Double Ratchet protocol.
+ *     - Each party generates an ephemeral DH keypair on first message
+ *     - New DH output is mixed into a "sending chain" via HKDF
+ *     - Each message advances the chain hash → old keys are deleted
+ *     - Compromising current state decrypts future messages only until
+ *       the next DH ratchet step, not past messages
+ *
+ *   Current mitigation: relay messages use sealed boxes (ephemeral sender)
+ *   which provides one-hop forward secrecy for the relay hop only.
+ *
  * Returns { ciphertext, nonce } both as Uint8Array.
  */
 export async function boxEncrypt(
@@ -227,16 +241,56 @@ export async function boxDecrypt(
 
 // ─── Peer public key registry ─────────────────────────────────────────────────
 // We learn peers' X25519 pubkeys from their signed profile broadcasts.
-// Stored in session memory — never persisted.
+// Persisted to SecureStore so they survive app restarts — critical for
+// decrypting relay messages that arrived while offline.
 
+import * as ExpoCrypto from 'expo-crypto'
+
+const KEY_PEER_XPUB_REGISTRY = 'connectedge_peer_xpub_v1'
 const peerXPubKeys = new Map<string, Uint8Array>()  // peerId → X25519 pubkey
 
 export function registerPeerXPubKey(peerId: string, xPubKeyHex: string) {
   peerXPubKeys.set(peerId, hexToUint8Array(xPubKeyHex))
+  persistPeerXPubKeys()
 }
 
 export function getPeerXPubKey(peerId: string): Uint8Array | undefined {
   return peerXPubKeys.get(peerId)
+}
+
+/**
+ * Load persisted peer XPubKeys from SecureStore on app start.
+ * Without this, relay messages from peers whose broadcasts we missed
+ * during a restart cannot be decrypted.
+ */
+export async function loadPeerXPubKeys(): Promise<void> {
+  try {
+    const raw = await SecureStore.getItemAsync(KEY_PEER_XPUB_REGISTRY)
+    if (!raw) return
+    const entries: Array<[string, string]> = JSON.parse(raw)
+    for (const [peerId, xPubHex] of entries) {
+      peerXPubKeys.set(peerId, hexToUint8Array(xPubHex))
+    }
+  } catch (e) {
+    console.warn('Failed to load peer XPub registry:', e)
+  }
+}
+
+let _persistTimer: ReturnType<typeof setTimeout> | null = null
+function persistPeerXPubKeys() {
+  // Debounced — batch writes every 5s instead of on every registration
+  if (_persistTimer) clearTimeout(_persistTimer)
+  _persistTimer = setTimeout(async () => {
+    try {
+      const entries: Array<[string, string]> = []
+      for (const [peerId, key] of peerXPubKeys) {
+        entries.push([peerId, uint8ArrayToHex(key)])
+      }
+      await SecureStore.setItemAsync(KEY_PEER_XPUB_REGISTRY, JSON.stringify(entries))
+    } catch (e) {
+      console.warn('Failed to persist peer XPub registry:', e)
+    }
+  }, 5_000)
 }
 
 // ─── Signed like message ──────────────────────────────────────────────────────

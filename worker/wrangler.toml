@@ -1,4 +1,4 @@
-# Proxim Relay Worker — offline message delivery + FCM push dispatch
+# ConnectEdge Relay Worker — offline message delivery + FCM push dispatch
 name = "connectedge-relay"
 main = "relay.ts"
 compatibility_date = "2024-09-01"

@@ -17,14 +17,14 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.connectedge.app",
       "infoPlist": {
-        "NSBluetoothAlwaysUsageDescription": "Proxim uses Bluetooth to discover nearby people without GPS.",
-        "NSBluetoothPeripheralUsageDescription": "Proxim broadcasts a privacy-preserving signal so nearby users can find you.",
-        "NSLocalNetworkUsageDescription": "Proxim connects directly to nearby devices on your local network.",
-        "NSPhotoLibraryUsageDescription": "Proxim uses your photo library to share encrypted photos with matches.",
-        "NSCameraUsageDescription": "Proxim uses your camera to take photos to share with matches.",
-        "NSLocationWhenInUseUsageDescription": "Proxim uses your approximate area (~500m) to find people nearby on different networks. Exact location is never stored or transmitted.",
+        "NSBluetoothAlwaysUsageDescription": "ConnectEdge uses Bluetooth to discover nearby people without GPS.",
+        "NSBluetoothPeripheralUsageDescription": "ConnectEdge broadcasts a privacy-preserving signal so nearby users can find you.",
+        "NSLocalNetworkUsageDescription": "ConnectEdge connects directly to nearby devices on your local network.",
+        "NSPhotoLibraryUsageDescription": "ConnectEdge uses your photo library to share encrypted photos with matches.",
+        "NSCameraUsageDescription": "ConnectEdge uses your camera to take photos to share with matches.",
+        "NSLocationWhenInUseUsageDescription": "ConnectEdge uses your approximate area (~500m) to find people nearby on different networks. Exact location is never stored or transmitted.",
         "BGTaskSchedulerPermittedIdentifiers": [
-          "proxim-relay-poll"
+          "connectedge-relay-poll"
         ],
         "UIBackgroundModes": [
           "fetch",
@@ -64,6 +64,14 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 28
+          }
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
@@ -83,8 +91,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Proxim uses your photo library to share encrypted photos with matches.",
-          "cameraPermission": "Proxim uses your camera to take photos to share with matches."
+          "photosPermission": "ConnectEdge uses your photo library to share encrypted photos with matches.",
+          "cameraPermission": "ConnectEdge uses your camera to take photos to share with matches."
         }
       ],
       [

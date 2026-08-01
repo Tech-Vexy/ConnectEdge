@@ -19,9 +19,10 @@ export default function RootLayout() {
           <Stack.Screen name="index"         options={{ animation: 'none' }} />
           <Stack.Screen name="onboarding"    />
           <Stack.Screen name="profile-setup" />
+          <Stack.Screen name="chat"          options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+          <Stack.Screen name="matches"       />
           <Stack.Screen name="app"           options={{ animation: 'none' }} />
           <Stack.Screen name="verify"        options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="chat"          options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
           <Stack.Screen name="settings"      options={{ animation: 'slide_from_right' }} />
         </Stack>
       </ErrorBoundary>

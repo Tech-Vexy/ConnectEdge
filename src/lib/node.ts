@@ -4,14 +4,14 @@
 //   - Signed gossip messages (crypto.ts) — verifiable sender on likes + broadcasts
 //   - Box-encrypted chat (crypto.ts)     — E2E on both direct streams and relay
 //   - BLE signal strength (ble.ts)       — real RSSI for proximity dimension
-//   - Photo protocol (photos.ts)         — encrypted transfer over /proxim/photo/1.0.0
+//   - Photo protocol (photos.ts)         — encrypted transfer over /connectedge/photo/1.0.0
 //   - Relay poller (relay-poll.ts)       — foreground + background envelope delivery
 
 import { createLibp2p }   from 'libp2p'
 import { noise }          from '@chainsafe/libp2p-noise'
 import { yamux }          from '@chainsafe/libp2p-yamux'
 import { webSockets }     from '@libp2p/websockets'
-import { webRTC }         from '@libp2p/webrtc'
+// import { webRTC }         from '@libp2p/webrtc'  // Disabled: requires react-native-webrtc native module
 import { gossipsub }      from '@chainsafe/libp2p-gossipsub'
 import { identify }       from '@libp2p/identify'
 import type { Libp2p }    from 'libp2p'
@@ -20,7 +20,8 @@ import type { Stream }    from '@libp2p/interface'
 import { scorePeer }                from './matching'
 import { createLikeCommitment,
          verifyCommitment,
-         buildRevealMessage }       from './commitment'
+         buildRevealMessage,
+         sha256Hex }                from './commitment'
 import { hexToUint8Array,
          uint8ArrayToHex }          from './bytes'
 import {
@@ -43,9 +44,8 @@ import {
   loadBadge, verifyBadge,
   badgeToBroadcastFields,
 }                                    from './zk-identity'
-import { hyperswarmBridge, type HyperswarmEvent } from './hyperswarm-bridge'
-import { proximBLE }                 from './ble'
-import { requestBluetoothPermissions } from './permissions'
+import { appConfig }                from './config'
+import type { HyperswarmEvent }       from './hyperswarm-bridge'
 import { safetyRegistry }            from './safety'
 import {
   serialisePhotoEnvelope,
@@ -65,11 +65,11 @@ import type {
 }                                   from './types'
 import { EVICT_AFTER_MS, LIKE_THRESHOLD } from './types'
 
-const PROTO_CHAT  = '/proxim/chat/1.0.0'
-const PROTO_MATCH = '/proxim/match/1.0.0'
-const TOPIC_PEERS = 'proxim:peers'
-const TOPIC_LIKES = 'proxim:likes'
-const RELAY_BASE  = process.env.EXPO_PUBLIC_RELAY_URL ?? 'https://relay.proxim.workers.dev'
+const PROTO_CHAT  = '/connectedge/chat/1.0.0'
+const PROTO_MATCH = '/connectedge/match/1.0.0'
+const TOPIC_PEERS = 'connectedge:peers'
+const TOPIC_LIKES = 'connectedge:likes'
+const TOPIC_POSTS = 'connectedge:posts'
 
 export type NodeEventMap = {
   'peer:discovered': (peer: PeerBroadcast) => void
@@ -80,11 +80,12 @@ export type NodeEventMap = {
   'chat:message':    (msg: ChatMessage) => void
   'photo:received':  (peerId: string, env: EncryptedPhoto) => void
   'ad:received':     (ad: import('./types').AdBroadcast) => void
+  'post:received':   (post: import('./types').SocialPost) => void
   'node:ready':      (peerId: string) => void
   'hyperswarm:peer': (peerIdHash: string) => void
 }
 
-export class ProximNode {
+export class ConnectEdgeNode {
   private node!:      Libp2p
   private profile!:   UserProfile
   private keys!:      KeyPair
@@ -94,7 +95,12 @@ export class ProximNode {
   private theirLikes: Map<string, { commitHex: string }> = new Map()
   private matches:    Map<string, Match>          = new Map()
   private evictTimer?: ReturnType<typeof setInterval>
+  private broadcastTimer?: ReturnType<typeof setTimeout>
   private listeners:  Partial<{ [K in keyof NodeEventMap]: NodeEventMap[K][] }> = {}
+  private hyperswarmBridge: any = null
+  private connectEdgeBLE: any = null
+  private requestBluetoothPermissions: any = null
+  private discoveryModulesLoaded = false
 
   on<K extends keyof NodeEventMap>(event: K, handler: NodeEventMap[K]) {
     if (!this.listeners[event]) this.listeners[event] = []
@@ -106,6 +112,34 @@ export class ProximNode {
   ) {
     const hs = this.listeners[event] as ((...a: Parameters<NodeEventMap[K]>) => void)[] | undefined
     hs?.forEach(h => (h as (...a: Parameters<NodeEventMap[K]>) => void)(...args))
+  }
+
+  private async ensureDiscoveryModules() {
+    if (!this.discoveryModulesLoaded) {
+      this.discoveryModulesLoaded = true
+
+      const [hyperswarmModule, bleModule, permissionsModule] = await Promise.allSettled([
+        import('./hyperswarm-bridge'),
+        import('./ble'),
+        import('./permissions'),
+      ])
+
+      if (hyperswarmModule.status === 'fulfilled') {
+        this.hyperswarmBridge = hyperswarmModule.value.hyperswarmBridge
+      }
+      if (bleModule.status === 'fulfilled') {
+        this.connectEdgeBLE = bleModule.value.connectEdgeBLE
+      }
+      if (permissionsModule.status === 'fulfilled') {
+        this.requestBluetoothPermissions = permissionsModule.value.requestBluetoothPermissions
+      }
+    }
+
+    return {
+      hyperswarmBridge: this.hyperswarmBridge,
+      connectEdgeBLE: this.connectEdgeBLE,
+      requestBluetoothPermissions: this.requestBluetoothPermissions,
+    }
   }
 
   // ─── Start ────────────────────────────────────────────────────────────────
@@ -121,20 +155,27 @@ export class ProximNode {
     const derivedPeerId = peerIdFromPublicKey(this.keys.edPublicKey)
     this.profile = { ...profile, peerId: derivedPeerId }
 
-    // 2. Setup notifications + background poll
-    const notifGranted = await setupNotifications()
-    if (notifGranted) {
-      const peerIdHash = uint8ArrayToHex(this.keys.xPublicKey).slice(0, 32)
-      await registerBackgroundPoll(peerIdHash)
+    if (appConfig.relay.enabled) {
+      const notifGranted = await setupNotifications()
+      if (notifGranted) {
+        const peerIdHash = uint8ArrayToHex(this.keys.xPublicKey).slice(0, 32)
+        await registerBackgroundPoll(peerIdHash)
+      }
     }
 
-    // 3. Drain any messages queued while app was closed
-    await this.drainQueue()
+    const {
+      connectEdgeBLE,
+      requestBluetoothPermissions,
+    } = await this.ensureDiscoveryModules()
 
-    // 4. Init libp2p
+    if (appConfig.relay.enabled) {
+      await this.drainQueue()
+    }
+
+    // 4. Init libp2p (WebSocket only - WebRTC disabled until react-native-webrtc is configured)
     this.node = await createLibp2p({
-      addresses: { listen: ['/webrtc', '/ip4/0.0.0.0/tcp/0/ws'] },
-      transports:          [webSockets(), webRTC()],
+      addresses: { listen: ['/ip4/0.0.0.0/tcp/0/ws'] },
+      transports:          [webSockets()],
       connectionEncryption:[noise()],
       streamMuxers:        [yamux()],
       services: {
@@ -147,15 +188,17 @@ export class ProximNode {
     this.emit('node:ready', this.profile.peerId)
 
     // 5. Subscribe gossipsub topics
-    const pubsub = this.node.services.pubsub as any
+    const pubsub = this.node.services.pubsub as import('@chainsafe/libp2p-gossipsub').GossipSub
     pubsub.subscribe(TOPIC_PEERS)
     pubsub.subscribe(TOPIC_LIKES)
-    pubsub.subscribe('proxim:ads')
-    pubsub.addEventListener('message', (evt: any) => {
-      const { topic, data } = evt.detail
-      if (topic === TOPIC_PEERS)    this.handlePeerBroadcast(data)
-      if (topic === TOPIC_LIKES)    this.handleLikeMessage(data)
-      if (topic === 'proxim:ads')   this.handleAdBroadcast(data)
+    pubsub.subscribe(TOPIC_POSTS)
+    pubsub.subscribe('connectedge:ads')
+    pubsub.addEventListener('message', (event: { detail: { topic: string; data: Uint8Array } }) => {
+      const { topic, data } = event.detail
+      if (topic === TOPIC_PEERS)      this.handlePeerBroadcast(data)
+      if (topic === TOPIC_LIKES)      this.handleLikeMessage(data)
+      if (topic === TOPIC_POSTS)      this.handlePostMessage(data)
+      if (topic === 'connectedge:ads') this.handleAdBroadcast(data)
     })
 
     // 6. Protocol handlers
@@ -164,54 +207,60 @@ export class ProximNode {
     await this.node.handle(PROTO_PHOTO, ({ stream }) => this.handlePhotoStream(stream))
 
     // 7. BLE — request permissions first, then scan AND advertise
-    const blePermission = await requestBluetoothPermissions()
-    const bleOk = blePermission === 'granted' && await proximBLE.init(this.profile.peerId)
-    if (bleOk) {
+    const blePermission = requestBluetoothPermissions
+      ? await requestBluetoothPermissions()
+      : 'unavailable'
+    const bleOk = !!connectEdgeBLE && blePermission === 'granted'
+      ? await connectEdgeBLE.init(this.profile.peerId)
+      : false
+    if (bleOk && connectEdgeBLE) {
       await Promise.all([
-        proximBLE.startScanning(),
-        proximBLE.startAdvertising(),
+        connectEdgeBLE.startScanning(),
+        connectEdgeBLE.startAdvertising(),
       ])
-      proximBLE.onPeerDiscovered(async (blePeer) => {
+      connectEdgeBLE.onPeerDiscovered(async () => {
         for (const [peerId] of this.peers) {
-          const strength = await proximBLE.getSignalStrength(peerId)
+          const strength = await connectEdgeBLE.getSignalStrength(peerId)
           const peer = this.peers.get(peerId)
           if (peer) peer.signalStrength = strength
         }
       })
     }
 
-    // 8. Start broadcasting + eviction
+    // 8. Start broadcasting + eviction (adaptive interval: 15–45s based on peer density)
     this.broadcastProfile()
-    setInterval(() => this.broadcastProfile(), 15_000)
+    this.scheduleAdaptiveBroadcast()
     this.evictTimer = setInterval(() => {
       this.evictStalePeers()
-      proximBLE.evictStale()
+      connectEdgeBLE?.evictStale()
     }, 10_000)
 
-    // 9. Foreground relay poller
-    const peerIdHash = uint8ArrayToHex(this.keys.xPublicKey).slice(0, 32)
-    relayPoller.start(peerIdHash, this.keys, items => {
-      for (const item of items) {
-        if ('text' in item) {
-          this.emit('chat:message', item as ChatMessage)
-        } else if (item.type === 'photo') {
-          this.emit('photo:received', item.envelope.senderPeerId, item.envelope)
+    if (appConfig.relay.enabled) {
+      const peerIdHash = uint8ArrayToHex(this.keys.xPublicKey).slice(0, 32)
+      relayPoller.start(peerIdHash, this.keys, items => {
+        for (const item of items) {
+          if ('text' in item) {
+            this.emit('chat:message', item as ChatMessage)
+          } else if (item.type === 'photo') {
+            this.emit('photo:received', item.envelope.senderPeerId, item.envelope)
+          }
         }
-      }
-    })
+      })
+    }
   }
 
   async stop() {
     clearInterval(this.evictTimer)
+    clearTimeout(this.broadcastTimer)
     relayPoller.stop()
-    await proximBLE.stopAll()
+    await this.connectEdgeBLE?.stopAll()
     await this.node?.stop()
   }
 
   // ─── Profile broadcast ────────────────────────────────────────────────────
 
   private async broadcastProfile() {
-    const badge = await loadBadge()
+    const badge = appConfig.verify.enabled ? await loadBadge() : null
 
     const broadcast: PeerBroadcast = {
       peerId:       this.profile.peerId,
@@ -220,6 +269,9 @@ export class ProximNode {
       intentScore:  quantise(this.profile.prefs.intentScore),
       interestTags: this.profile.prefs.interestTags.slice(0, 5),
       valuesScore:  quantise(this.profile.prefs.valuesScore),
+      activityLevel:       quantise(this.profile.prefs.activityLevel),
+      communicationStyle:  quantise(this.profile.prefs.communicationStyle),
+      socialPreference:    quantise(this.profile.prefs.socialPreference),
       seenAt:       Date.now(),
       // Embed verification badge if present
       ...(badge ? badgeToBroadcastFields(badge) : {}),
@@ -230,11 +282,28 @@ export class ProximNode {
       this.keys,
     )
 
-    const pubsub = this.node.services.pubsub as any
+    const pubsub = this.node.services.pubsub as import('@chainsafe/libp2p-gossipsub').GossipSub
     await pubsub.publish(TOPIC_PEERS, signed)
   }
 
   // ─── Incoming peer broadcast ──────────────────────────────────────────────
+
+  /**
+   * Adaptive broadcast interval: more peers → slower broadcast to avoid mesh flood.
+   * 0–2 peers  → 15s  (aggressive discovery)
+   * 3–10 peers → 30s  (balanced)
+   * 11+ peers  → 45s  (conservative, dense environment)
+   */
+  private scheduleAdaptiveBroadcast() {
+    const peerCount = this.peers.size
+    const interval  = peerCount <= 2 ? 15_000
+                    : peerCount <= 10 ? 30_000
+                    : 45_000
+    this.broadcastTimer = setTimeout(() => {
+      this.broadcastProfile()
+      this.scheduleAdaptiveBroadcast()
+    }, interval)
+  }
 
   private async handlePeerBroadcast(data: Uint8Array) {
     const parsed = await parseSignedBroadcast(data)
@@ -247,7 +316,9 @@ export class ProximNode {
     const safetyLevel = safetyRegistry.level(peer.peerId)
     if (safetyLevel === 'blocked') return  // silent drop — don't even score
 
-    const bleStrength = await proximBLE.getSignalStrength(peer.peerId)
+    const bleStrength = this.connectEdgeBLE
+      ? await this.connectEdgeBLE.getSignalStrength(peer.peerId)
+      : 0.5
     peer.signalStrength = bleStrength
     peer.seenAt = Date.now()
 
@@ -297,7 +368,7 @@ export class ProximNode {
       commitment.commitHex, toPeerId, this.keys,
     )
 
-    const pubsub = this.node.services.pubsub as any
+    const pubsub = this.node.services.pubsub as import('@chainsafe/libp2p-gossipsub').GossipSub
     await pubsub.publish(TOPIC_LIKES, signedMsg)
   }
 
@@ -326,7 +397,10 @@ export class ProximNode {
 
   private async openMatchStream(peerId: string, myLike: LikeCommitment) {
     try {
-      const connection = this.node.getConnections(peerId as any)[0]
+      const connections = this.node.getConnections()
+      const connection  = connections.find(c =>
+        c.remotePeer.toString() === peerId
+      )
       if (!connection) return
 
       const stream  = await connection.newStream(PROTO_MATCH)
@@ -346,8 +420,8 @@ export class ProximNode {
         JSON.parse(new TextDecoder().decode(data))
       if (msg.type !== 'reveal') return
 
-      const peerId = (stream as any).stat?.remotePeer?.toString()
-        ?? (stream as any).metadata?.connection?.remotePeer?.toString()
+      const peerId = (stream as { stat?: { remotePeer?: { toString(): string } } }).stat?.remotePeer?.toString()
+        ?? (stream as { metadata?: { connection?: { remotePeer?: { toString(): string } } } }).metadata?.connection?.remotePeer?.toString()
       if (!peerId) return
 
       // ── Block check on incoming match stream ──────────────────────────────
@@ -384,6 +458,24 @@ export class ProximNode {
     if (ad) this.emit('ad:received', ad)
   }
 
+  private handlePostMessage(data: Uint8Array) {
+    try {
+      const post = JSON.parse(new TextDecoder().decode(data)) as import('./types').SocialPost
+      if (post && post.id && !safetyRegistry.isBlocked(post.authorPeerId)) {
+        this.emit('post:received', post)
+      }
+    } catch (e) {
+      console.warn('Failed to parse incoming social post:', e)
+    }
+  }
+
+  async publishPost(post: import('./types').SocialPost) {
+    if (!this.node) return
+    const pubsub = this.node.services.pubsub as import('@chainsafe/libp2p-gossipsub').GossipSub
+    const payload = new TextEncoder().encode(JSON.stringify(post))
+    await pubsub.publish(TOPIC_POSTS, payload)
+  }
+
   private confirmMatch(peerId: string) {
     if (this.matches.has(peerId)) return
     const peer = this.peers.get(peerId)
@@ -397,6 +489,7 @@ export class ProximNode {
       peerId,
       displayName:        peer.displayName,
       matchedAt:          Date.now(),
+      photoUri:            this.profile?.photoUri,
       sharedTags,
       compatibilityScore: this.myLikes.get(peerId)?.score ?? 0,
     }
@@ -405,6 +498,13 @@ export class ProximNode {
   }
 
   // ─── Chat — box-encrypted ─────────────────────────────────────────────────
+
+  /** Find an existing libp2p connection to a peer by their string PeerID */
+  private findConnection(peerId: string) {
+    return this.node.getConnections().find(c =>
+      c.remotePeer.toString() === peerId
+    )
+  }
 
   async sendMessage(toPeerId: string, text: string): Promise<ChatMessage> {
     const msg: ChatMessage = {
@@ -439,7 +539,7 @@ export class ProximNode {
     ciphertext: Uint8Array,
     nonce:      Uint8Array,
   ) {
-    const connection = this.node.getConnections(toPeerId as any)[0]
+    const connection = this.findConnection(toPeerId)
     if (!connection) throw new Error('No connection')
     const stream  = await connection.newStream(PROTO_CHAT)
     const payload = new TextEncoder().encode(JSON.stringify({
@@ -456,13 +556,12 @@ export class ProximNode {
     plaintext:   Uint8Array,
     recipientXPub: Uint8Array,
   ) {
+    if (!appConfig.relay.enabled) return
+
     // Seal the box — anonymous sender, only recipient can open
     const sealed = await sealBox(plaintext, recipientXPub)
 
-    // Derive relay key hash from recipient's X25519 pubkey (same as relay worker)
-    const hash = await sha256Hex(new TextEncoder().encode(toPeerId))
-
-    await fetch(`${RELAY_BASE}/envelope`, {
+    await fetch(`${appConfig.relay.baseUrl}/envelope`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
@@ -519,8 +618,8 @@ export class ProximNode {
 
     if (isOnline) {
       try {
-        const connection = this.node.getConnections(toPeerId as any)[0]
-        if (!connection) throw new Error('no conn')
+      const connection = this.findConnection(toPeerId)
+      if (!connection) throw new Error('no conn')
         const stream = await connection.newStream(PROTO_PHOTO)
         await writeToStream(stream, payload)
         return
@@ -593,6 +692,9 @@ export class ProximNode {
   async enableHyperswarmDiscovery(): Promise<boolean> {
     if (this.hyperswarmActive) return true
 
+    const { hyperswarmBridge } = await this.ensureDiscoveryModules()
+    if (!hyperswarmBridge) return false
+
     const started = await hyperswarmBridge.start(this.profile.peerId)
     if (!started) return false
 
@@ -603,6 +705,8 @@ export class ProximNode {
 
   async disableHyperswarmDiscovery(): Promise<void> {
     if (!this.hyperswarmActive) return
+    const { hyperswarmBridge } = await this.ensureDiscoveryModules()
+    if (!hyperswarmBridge) return
     hyperswarmBridge.off(this.handleHyperswarmEvent)
     await hyperswarmBridge.stop()
     this.hyperswarmActive = false
@@ -659,7 +763,9 @@ export class ProximNode {
 
   private closePeerStreams(peerId: string) {
     try {
-      const connections = this.node.getConnections(peerId as any)
+      const connections = this.node.getConnections().filter(c =>
+        c.remotePeer.toString() === peerId
+      )
       for (const conn of connections) {
         conn.close().catch(() => {})
       }
@@ -697,9 +803,4 @@ function quantise(v: number): number {
   return Math.round(v * 4) / 4
 }
 
-async function sha256Hex(data: Uint8Array): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', data as any)
-  return uint8ArrayToHex(new Uint8Array(buf))
-}
-
-export const proximNode = new ProximNode()
+export const connectEdgeNode = new ConnectEdgeNode()

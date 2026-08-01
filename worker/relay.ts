@@ -1,5 +1,5 @@
 /**
- * Proxim Relay Worker v2 — with FCM push dispatch
+ * ConnectEdge Relay Worker v2 — with FCM push dispatch
  * deploy: wrangler deploy
  *
  * New in v2:
@@ -29,6 +29,16 @@ const MAX_BODY_SIZE  = 64_000    // 64KB (raised for photo chunks)
 const MAX_ENVELOPES  = 50
 const TOKEN_TTL      = 8 * 24 * 3600   // 8 days
 
+// Authentication: clients must prove ownership of the peerIdHash
+// by providing an ed25519 signature over the request body.
+// The public key derived from the signature must hash to the peerIdHash.
+//
+// Header: X-Peer-Sig: <ed25519-detached-signature-hex>
+// Header: X-Peer-PubKey: <ed25519-publickey-hex>
+//
+// Verification: SHA256(pubKeyHex).slice(0,32) === peerIdHash
+//               crypto_sign_verify_detached(sig, message, pubKey)
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export default {
@@ -46,11 +56,11 @@ export default {
 
     const envGet = path.match(/^\/envelope\/([a-f0-9]{32})$/)
     if (request.method === 'GET' && envGet)
-      return handleFetch(envGet[1], env)
+      return handleFetch(envGet[1], request, env)
 
     const envDel = path.match(/^\/envelope\/([a-f0-9]{32})\/([a-zA-Z0-9_-]+)$/)
     if (request.method === 'DELETE' && envDel)
-      return handleDelete(envDel[1], envDel[2], env)
+      return handleDelete(envDel[1], envDel[2], request, env)
 
     const tokDel = path.match(/^\/register-token\/([a-f0-9]{32})$/)
     if (request.method === 'DELETE' && tokDel)
@@ -276,7 +286,11 @@ async function handleDeregisterToken(tokenHash: string, env: Env): Promise<Respo
 
 // ─── Envelope fetch / delete ──────────────────────────────────────────────────
 
-async function handleFetch(recipientHash: string, env: Env): Promise<Response> {
+async function handleFetch(recipientHash: string, request: Request, env: Env): Promise<Response> {
+  if (!await verifyPeerAuth(recipientHash, request)) {
+    return json({ error: 'Authentication required — provide X-Peer-Sig and X-Peer-PubKey headers' }, 401)
+  }
+
   const index: string[] = JSON.parse(
     (await env.RELAY_STORE.get(`idx:${recipientHash}`)) ?? '[]'
   )
@@ -298,8 +312,12 @@ async function handleFetch(recipientHash: string, env: Env): Promise<Response> {
 }
 
 async function handleDelete(
-  recipientHash: string, envelopeId: string, env: Env,
+  recipientHash: string, envelopeId: string, request: Request, env: Env,
 ): Promise<Response> {
+  if (!await verifyPeerAuth(recipientHash, request)) {
+    return json({ error: 'Authentication required' }, 401)
+  }
+
   await env.RELAY_STORE.delete(`env:${recipientHash}:${envelopeId}`)
 
   const index: string[] = JSON.parse(
@@ -313,6 +331,42 @@ async function handleDelete(
   return json({ ok: true })
 }
 
+// ─── Peer authentication ──────────────────────────────────────────────────────
+
+/**
+ * Verify that the requester owns the peerIdHash by checking an ed25519
+ * signature over the request body. The public key must hash to the peerIdHash.
+ *
+ * Headers required for authenticated endpoints:
+ *   X-Peer-Sig:    hex-encoded ed25519 detached signature of request body
+ *   X-Peer-PubKey: hex-encoded ed25519 public key
+ */
+async function verifyPeerAuth(
+  peerIdHash: string,
+  request:    Request,
+): Promise<boolean> {
+  const sigHex    = request.headers.get('X-Peer-Sig')
+  const pubKeyHex = request.headers.get('X-Peer-PubKey')
+  if (!sigHex || !pubKeyHex) return false
+
+  // Verify: SHA256(ed25519_pubkey_hex).slice(0,32) === peerIdHash
+  const pubKeyHash = await sha256Hex(pubKeyHex)
+  if (pubKeyHash.slice(0, 32) !== peerIdHash) return false
+
+  // Verify signature against request body
+  const body = await request.clone().arrayBuffer()
+  const { default: _sodium } = await import('libsodium-wrappers' as any)
+  await _sodium.ready
+
+  try {
+    return _sodium.crypto_sign_verify_detached(
+      hexToBytes(sigHex),
+      new Uint8Array(body),
+      hexToBytes(pubKeyHex),
+    )
+  } catch { return false }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function hashPeerId(peerId: string): Promise<string> {
@@ -322,6 +376,13 @@ async function hashPeerId(peerId: string): Promise<string> {
     .map(b => b.toString(16).padStart(2, '0'))
     .join('')
     .slice(0, 32)
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 function cors(response: Response): Response {

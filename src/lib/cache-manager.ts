@@ -7,8 +7,8 @@
 // Each write records the file in a manifest (SecureStore). When the limit
 // is exceeded, the oldest files are deleted first.
 //
-// Cache directory: <cacheDirectory>/proxim_photos/
-// Manifest key:    proxim_photo_manifest_v1  → JSON array of CacheEntry[]
+// Cache directory: <cacheDirectory>/connectedge_photos/
+// Manifest key:    connectedge_photo_manifest_v1  → JSON array of CacheEntry[]
 //
 // This module wraps expo-file-system — import it instead of using
 // FileSystem directly for photo operations.
@@ -16,8 +16,8 @@
 import * as FileSystem from 'expo-file-system'
 import * as SecureStore from 'expo-secure-store'
 
-export const PHOTO_CACHE_DIR    = FileSystem.cacheDirectory + 'proxim_photos/'
-const MANIFEST_KEY              = 'proxim_photo_manifest_v1'
+export const PHOTO_CACHE_DIR    = FileSystem.cacheDirectory + 'connectedge_photos/'
+const MANIFEST_KEY              = 'connectedge_photo_manifest_v1'
 const MAX_CACHE_BYTES           = 100 * 1024 * 1024  // 100 MB
 const MAX_CACHE_FILES           = 500
 

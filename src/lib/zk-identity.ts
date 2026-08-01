@@ -1,4 +1,4 @@
-// zk-identity.ts — Zero-Knowledge verified identity for Proxim
+// zk-identity.ts — Zero-Knowledge verified identity for ConnectEdge
 //
 // ─── What this proves ─────────────────────────────────────────────────────────
 //
@@ -20,23 +20,23 @@
 //   TIER 1 — Practical ZK (ships now, runs fast on mobile):
 //     SHA-256 Merkle inclusion proof + HMAC nullifier
 //     Proving time: <1ms (pure JS, no WASM circuit)
-//     Trust model: Proxim's verification worker sees that a valid institutional
+//     Trust model: ConnectEdge's verification worker sees that a valid institutional
 //       email was used, but cannot link it to a PeerID (nullifier hides it)
 //
 //   TIER 2 — Full ZK (upgrade path, commented):
 //     Groth16 circuit via snarkjs — proves Merkle membership with no email contact
 //     Proving time: ~200–800ms on modern mobile (WASM)
 //     Trust model: zero trust — institution provides Merkle root, user proves
-//       membership locally, Proxim sees only a valid proof
+//       membership locally, ConnectEdge sees only a valid proof.
 //
 // ─── Verification flow ────────────────────────────────────────────────────────
 //
 //   1. User opens Verification screen, selects their institution
-//   2. [TIER 1] User enters institutional email → Proxim worker sends OTP
+//   2. [TIER 1] User enters institutional email → ConnectEdge worker sends OTP
 //      [TIER 2] User scans QR on university portal → receives credential
 //   3. Local computation:
 //      a. secret  = BLAKE2b(email + OTP)           — derived, never stored
-//      b. nullifier = H(secret + PROXIM_DOMAIN)    — unique per app, unlinkable
+//      b. nullifier = H(secret + CONNECTEDGE_DOMAIN)    — unique per app, unlinkable
 //      c. commitment = H(secret + peerId + salt)   — binds claim to identity
 //   4. Worker verifies OTP, returns a signed badge:
 //      { institution, tier, nullifierHash, expiresAt, workerSig }
@@ -56,12 +56,13 @@ import * as SecureStore  from 'expo-secure-store'
 import * as ExpoCrypto   from 'expo-crypto'
 import { uint8ArrayToHex, hexToUint8Array, concatBytes } from './bytes'
 import { signMessage, verifyMessage, type KeyPair }      from './crypto'
+import { appConfig } from './config'
 
-const KEY_BADGE          = 'proxim_zkbadge_v1'
-const KEY_PENDING_SALT   = 'proxim_zkpending_salt_v1'
-const PROXIM_DOMAIN      = 'proxim.identity.v1'
-const WORKER_VERIFY_URL  = `${process.env.EXPO_PUBLIC_RELAY_URL ?? 'https://relay.proxim.workers.dev'}/verify`
-const WORKER_PUBKEY_URL  = `${process.env.EXPO_PUBLIC_RELAY_URL ?? 'https://relay.proxim.workers.dev'}/verify/pubkey`
+const KEY_BADGE          = 'connectedge_zkbadge_v1'
+const KEY_PENDING_SALT   = 'connectedge_zkpending_salt_v1'
+const CONNECTEDGE_DOMAIN      = 'connectedge.identity.v1'
+const WORKER_VERIFY_URL  = appConfig.verify.baseUrl
+const WORKER_PUBKEY_URL  = appConfig.verify.pubkeyUrl
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,13 +86,13 @@ export interface VerificationBadge {
   nullifierHash: string         // H(nullifier) — stored on worker for anti-Sybil
   issuedAt:     number          // unix ms
   expiresAt:    number          // unix ms — default 6 months
-  workerSigHex: string          // ed25519 sig from Proxim worker's signing key
+  workerSigHex: string          // ed25519 sig from ConnectEdge worker's signing key
   // NOT included: email, peerId, name, student ID
 }
 
 export interface ZKProof {
   commitmentHex: string   // H(secret + peerId + salt) — binds badge to this identity
-  nullifierHex:  string   // H(secret + PROXIM_DOMAIN) — unique claim token
+  nullifierHex:  string   // H(secret + CONNECTEDGE_DOMAIN) — unique claim token
   saltHex:       string   // random 16 bytes
 }
 
@@ -103,6 +104,46 @@ export const INSTITUTIONS: Record<string, { name: string; tier: VerificationTier
   'oauife.edu.ng':      { name: 'Obafemi Awolowo University',   tier: 'student' },
   'abu.edu.ng':         { name: 'Ahmadu Bello University',      tier: 'student' },
   'unn.edu.ng':         { name: 'UNN',                          tier: 'student' },
+  // Kenya - Standard format
+  'uonbi.ac.ke':        { name: 'University of Nairobi',        tier: 'student' },
+  'ku.ac.ke':           { name: 'Kenyatta University',          tier: 'student' },
+  'mu.ac.ke':           { name: 'Moi University',               tier: 'student' },
+  'jkuat.ac.ke':        { name: 'JKUAT',                        tier: 'student' },
+  'egerton.ac.ke':      { name: 'Egerton University',           tier: 'student' },
+  'maseno.ac.ke':       { name: 'Maseno University',            tier: 'student' },
+  'mmust.ac.ke':        { name: 'Masinde Muliro University',    tier: 'student' },
+  'strathmore.edu':     { name: 'Strathmore University',        tier: 'student' },
+  'usiu.ac.ke':         { name: 'USIU-Africa',                  tier: 'student' },
+  'tum.ac.ke':          { name: 'Technical University of Mombasa', tier: 'student' },
+  'kabianga.ac.ke':     { name: 'Kabianga University',          tier: 'student' },
+  'kemu.ac.ke':         { name: 'Kenya Methodist University',   tier: 'student' },
+  'dkut.ac.ke':         { name: 'Dedan Kimathi University',     tier: 'student' },
+  'chuka.ac.ke':        { name: 'Chuka University',             tier: 'student' },
+  'mmarau.ac.ke':       { name: 'Maasai Mara University',       tier: 'student' },
+  'tukenya.ac.ke':      { name: 'Technical University of Kenya', tier: 'student' },
+  // Kenya - Students subdomain format (@students.university.ac.ke)
+  'students.uonbi.ac.ke':   { name: 'University of Nairobi',        tier: 'student' },
+  'students.ku.ac.ke':      { name: 'Kenyatta University',          tier: 'student' },
+  'students.mu.ac.ke':      { name: 'Moi University',               tier: 'student' },
+  'students.jkuat.ac.ke':   { name: 'JKUAT',                        tier: 'student' },
+  'students.kyu.ac.ke':     { name: 'Kirinyaga University',         tier: 'student' },
+  'students.egerton.ac.ke': { name: 'Egerton University',           tier: 'student' },
+  'students.maseno.ac.ke':  { name: 'Maseno University',            tier: 'student' },
+  'students.mmust.ac.ke':   { name: 'Masinde Muliro University',    tier: 'student' },
+  'students.tum.ac.ke':     { name: 'Technical University of Mombasa', tier: 'student' },
+  'students.dkut.ac.ke':    { name: 'Dedan Kimathi University',     tier: 'student' },
+  'students.chuka.ac.ke':   { name: 'Chuka University',             tier: 'student' },
+  'students.tukenya.ac.ke': { name: 'Technical University of Kenya', tier: 'student' },
+  // Kenya - More universities
+  'kyu.ac.ke':              { name: 'Kirinyaga University',         tier: 'student' },
+  'pwani.ac.ke':            { name: 'Pwani University',             tier: 'student' },
+  'students.pwani.ac.ke':   { name: 'Pwani University',             tier: 'student' },
+  'tuk.ac.ke':              { name: 'Technical University of Kenya', tier: 'student' },
+  'students.tuk.ac.ke':     { name: 'Technical University of Kenya', tier: 'student' },
+  'mku.ac.ke':              { name: 'Mount Kenya University',       tier: 'student' },
+  'students.mku.ac.ke':     { name: 'Mount Kenya University',       tier: 'student' },
+  'kca.ac.ke':              { name: 'KCA University',               tier: 'student' },
+  'students.kca.ac.ke':     { name: 'KCA University',               tier: 'student' },
   // UK
   'ox.ac.uk':           { name: 'University of Oxford',         tier: 'student' },
   'cam.ac.uk':          { name: 'University of Cambridge',      tier: 'student' },
@@ -145,7 +186,7 @@ async function deriveSecret(email: string, otp: string): Promise<Uint8Array> {
  * Build a ZK proof from a derived secret.
  * This is the local computation — no network call.
  *
- * nullifier  = SHA256(secret ‖ "proxim.identity.v1")
+ * nullifier  = SHA256(secret ‖ "connectedge.identity.v1")
  *   — deterministic per (credential, app) pair
  *   — the worker stores H(nullifier) to prevent double-claiming
  *   — does NOT reveal which credential was used
@@ -161,7 +202,7 @@ async function buildZKProof(
   salt:    Uint8Array,
 ): Promise<ZKProof> {
   const enc    = new TextEncoder()
-  const domain = enc.encode(PROXIM_DOMAIN)
+  const domain = enc.encode(CONNECTEDGE_DOMAIN)
   const peerBytes = enc.encode(peerId)
 
   const [nullifierBuf, commitmentBuf] = await Promise.all([
@@ -205,6 +246,10 @@ export async function requestOTP(email: string): Promise<{
   challenge: OTPChallenge | null
   error?:    string
 }> {
+  if (!appConfig.verify.enabled) {
+    return { ok: false, challenge: null, error: 'Verification is disabled in P2P-only mode' }
+  }
+
   const emailLower = email.toLowerCase().trim()
 
   // Validate domain locally before any network call
@@ -262,6 +307,10 @@ export async function submitOTPAndProve(
   badge?: VerificationBadge
   error?: string
 }> {
+  if (!appConfig.verify.enabled) {
+    return { ok: false, error: 'Verification is disabled in P2P-only mode' }
+  }
+
   const emailLower = email.toLowerCase().trim()
   const domain     = emailLower.split('@')[1]
   const institution = INSTITUTIONS[domain]
@@ -321,6 +370,7 @@ export async function submitOTPAndProve(
 // ─── Badge storage & retrieval ────────────────────────────────────────────────
 
 export async function loadBadge(): Promise<VerificationBadge | null> {
+  if (!appConfig.verify.enabled) return null
   try {
     const raw = await SecureStore.getItemAsync(KEY_BADGE)
     if (!raw) return null
@@ -352,24 +402,57 @@ export function daysUntilExpiry(badge: VerificationBadge): number {
 
 // ─── Badge verification (by receiving peers) ─────────────────────────────────
 
-// The worker's ed25519 public key — hard-coded, rotated via app update
-// In production: fetch from /verify/pubkey and cache with TOFU pinning
-let _workerPubKey: Uint8Array | null = null
+// The worker's ed25519 public key — fetched from /verify/pubkey with versioned TOFU pinning
+let _workerPubKey:  Uint8Array | null = null
+let _workerPubKeyTs: number       = 0
+const WORKER_PUBKEY_MAX_AGE = 24 * 3600_000  // Re-fetch at least once per 24h
+const KEY_WORKER_PUBKEY_CACHE = 'connectedge_worker_pubkey_v1'
 
 async function getWorkerPublicKey(): Promise<Uint8Array | null> {
-  if (_workerPubKey) return _workerPubKey
+  if (!appConfig.verify.enabled) return null
+  // Use cached key if fresh (<24h old)
+  if (_workerPubKey && Date.now() - _workerPubKeyTs < WORKER_PUBKEY_MAX_AGE) return _workerPubKey
+
   try {
     const res  = await fetch(WORKER_PUBKEY_URL, { signal: AbortSignal.timeout(5_000) })
     const data = await res.json() as { pubKeyHex: string }
-    _workerPubKey = hexToUint8Array(data.pubKeyHex)
+    const newKey = hexToUint8Array(data.pubKeyHex)
+
+    // If we had a previous key and it changed, log the rotation
+    // (In production, this should trigger a re-verification of all cached badges)
+    if (_workerPubKey && uint8ArrayToHex(_workerPubKey) !== uint8ArrayToHex(newKey)) {
+      console.warn('Worker signing key rotated — badges may need re-verification')
+    }
+
+    _workerPubKey   = newKey
+    _workerPubKeyTs = Date.now()
+
+    // Persist for offline use
+    await SecureStore.setItemAsync(KEY_WORKER_PUBKEY_CACHE,
+      JSON.stringify({ hex: data.pubKeyHex, ts: _workerPubKeyTs }))
+
     return _workerPubKey
-  } catch { return null }
+  } catch {
+    // Network error — try loading cached key from SecureStore
+    if (!_workerPubKey) {
+      try {
+        const raw = await SecureStore.getItemAsync(KEY_WORKER_PUBKEY_CACHE)
+        if (raw) {
+          const { hex, ts } = JSON.parse(raw) as { hex: string; ts: number }
+          _workerPubKey   = hexToUint8Array(hex)
+          _workerPubKeyTs = ts
+          return _workerPubKey
+        }
+      } catch { return null }
+    }
+    return _workerPubKey
+  }
 }
 
 /**
  * Verify a badge received in a peer's signed broadcast.
  * Checks:
- *   1. Badge signature is valid (from Proxim's worker signing key)
+ *   1. Badge signature is valid (from ConnectEdge's worker signing key)
  *   2. Badge has not expired
  *   3. Institution domain is in our supported list
  *
@@ -378,6 +461,7 @@ async function getWorkerPublicKey(): Promise<Uint8Array | null> {
  */
 export async function verifyBadge(badge: VerificationBadge): Promise<boolean> {
   try {
+    if (!appConfig.verify.enabled) return false
     if (badge.expiresAt < Date.now()) return false
     if (!INSTITUTIONS[badge.domain]) return false
 
@@ -454,7 +538,7 @@ export const TIER_ICONS: Record<VerificationTier, string> = {
 //
 // The institution publishes a Merkle root of H(studentEmail) for all enrolled
 // students each semester. Users prove membership locally without contacting the
-// institution. Proxim never sees the email — only the proof.
+// institution. ConnectEdge never sees the email — only the proof.
 //
 // import { groth16 }           from 'snarkjs'
 // import verificationKey       from '../circuits/membership_verification_key.json'

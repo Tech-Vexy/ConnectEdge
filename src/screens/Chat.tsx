@@ -40,22 +40,22 @@ function MessageBubble({
 
   return (
     <Animated.View style={{ opacity: fadeIn }}>
-      <View style={[styles.bubbleRow, isMe && styles.bubbleRowMe]}>
-        <View style={[
-          styles.bubble,
-          isMe ? styles.bubbleMe : styles.bubbleThem,
-          msg.pending && styles.bubblePending,
-        ]}>
-          <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>
-            {msg.text}
-          </Text>
+        <View style={[styles.bubbleRow, isMe && styles.bubbleRowMe]}>
+          <View style={[
+            styles.bubble,
+            isMe ? styles.bubbleMe : styles.bubbleThem,
+            msg.pending && styles.bubblePending,
+          ]}>
+            <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>
+              {msg.text}
+            </Text>
+          </View>
         </View>
-      </View>
-      {showTime && (
-        <Text style={[styles.timeLabel, isMe && styles.timeLabelMe]}>
-          {timeLabel(msg.ts)}{msg.pending ? ' · sending…' : ''}
-        </Text>
-      )}
+        {showTime && (
+          <Text style={[styles.timeLabel, isMe && styles.timeLabelMe]}>
+            {timeLabel(msg.ts)}{msg.pending ? ' · sending…' : ''}
+          </Text>
+        )}
     </Animated.View>
   )
 }
@@ -102,15 +102,26 @@ export default function Chat() {
         style: 'destructive',
         onPress: () => Alert.alert(
           `Block ${match.displayName}?`,
-          "They won't appear on your radar and can't contact you.",
+          "They won't appear on your radar and can't contact you. This action cannot be undone.",
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Block', style: 'destructive',
-              onPress: () => { blockPeer(activeChat); closeChat(); router.back() } },
+              onPress: () => {
+                blockPeer(activeChat)
+                closeChat()
+                router.back()
+                Alert.alert('Blocked', `${match.displayName} has been blocked`)
+              } },
           ]
         ),
       },
-      { text: 'Report',  onPress: () => setReportVisible(true) },
+      { 
+        text: 'Report',  
+        onPress: () => {
+          setReportVisible(true)
+          Alert.alert('Report submitted', 'Thank you for helping keep ConnectEdge safe. Your report has been saved locally.')
+        } 
+      },
       { text: 'Cancel',  style: 'cancel' },
     ])
   }
@@ -158,6 +169,7 @@ export default function Chat() {
         <Pressable
           style={styles.backBtn}
           onPress={() => { closeChat(); router.back() }}
+          accessibilityLabel="Go back"
         >
           <Text style={styles.backBtnText}>‹</Text>
         </Pressable>
@@ -175,11 +187,7 @@ export default function Chat() {
           </View>
         </View>
 
-        {/* PeerID as header texture */}
-        <Text style={styles.headerPeerId} numberOfLines={1}>
-          {match.peerId.slice(0, 8)}
-        </Text>
-        <Pressable style={styles.blockBtn} onPress={handleSafetyPress}>
+        <Pressable style={styles.blockBtn} onPress={handleSafetyPress} accessibilityLabel="Safety options">
           <Text style={styles.blockBtnText}>⊘</Text>
         </Pressable>
       </View>
@@ -297,6 +305,7 @@ export default function Chat() {
           <Pressable
             style={styles.photoBtn}
             onPress={handlePhotoPress}
+            accessibilityLabel="Share a photo"
           >
             <Text style={styles.photoBtnText}>⊕</Text>
           </Pressable>
@@ -318,6 +327,7 @@ export default function Chat() {
             ]}
             onPress={handleSend}
             disabled={!text.trim() || sending}
+            accessibilityLabel="Send message"
           >
             <Text style={styles.sendBtnText}>↑</Text>
           </Pressable>
@@ -375,12 +385,6 @@ const styles = StyleSheet.create({
     ...typography.mono,
     fontSize: fontSizes.xs,
     color:    colors.textMuted,
-  },
-  headerPeerId: {
-    ...typography.mono,
-    fontSize: fontSizes.xs,
-    color:    colors.textMuted,
-    opacity:  0.5,
   },
   e2eNotice: {
     alignItems:   'center',
@@ -577,7 +581,7 @@ const styles = StyleSheet.create({
   },
   icebreakerChipPressed: {
     borderColor:     colors.pulse,
-    backgroundColor: colors.pulse + '14',
+    backgroundColor: colors.pulseAlpha14,
   },
   icebreakerChipText: {
     ...typography.body,

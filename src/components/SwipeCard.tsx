@@ -14,9 +14,10 @@
 // No actual photo until post-match — card shows a deterministic
 // gradient avatar generated from the peerId hash.
 
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import {
   View, Text, StyleSheet, Dimensions, Platform,
+  useWindowDimensions,
 } from 'react-native'
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring,
@@ -26,15 +27,15 @@ import Animated, {
 import { PanGestureHandler, type PanGestureHandlerGestureEvent } from 'react-native-gesture-handler'
 import { LinearGradient } from 'expo-linear-gradient'
 import type { PeerBroadcast } from '../lib/types'
+import { peerGradient } from '../lib/peer-gradient'
 import { colors, typography, fontSizes, spacing, radius, cardShadow } from '../theme'
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window')
 export const CARD_W = SCREEN_W - spacing.lg * 2
 export const CARD_H = SCREEN_H * 0.68
 
-const SWIPE_THRESHOLD = SCREEN_W * 0.32
-const SUPER_THRESHOLD = -SCREEN_H * 0.22
-const ROTATION_FACTOR = 12   // degrees at full swipe
+const ROTATION_FACTOR = 15   // degrees at full swipe
+const SPRING_CONFIG = { damping: 15, stiffness: 200 }
 
 export type SwipeAction = 'like' | 'pass' | 'super'
 
@@ -46,28 +47,6 @@ interface Props {
   verified?: { institution: string; tier: string } | null
 }
 
-// Deterministic gradient from peerId — same peer always gets same colours
-function peerGradient(peerId: string): [string, string] {
-  const PALETTES: [string, string][] = [
-    ['#667eea', '#764ba2'],
-    ['#f093fb', '#f5576c'],
-    ['#4facfe', '#00f2fe'],
-    ['#43e97b', '#38f9d7'],
-    ['#fa709a', '#fee140'],
-    ['#a18cd1', '#fbc2eb'],
-    ['#ffecd2', '#fcb69f'],
-    ['#ff9a9e', '#fecfef'],
-    ['#a1c4fd', '#c2e9fb'],
-    ['#fddb92', '#d1fdff'],
-  ]
-  let hash = 0
-  for (let i = 0; i < peerId.length; i++) {
-    hash = ((hash << 5) - hash) + peerId.charCodeAt(i)
-    hash |= 0
-  }
-  return PALETTES[Math.abs(hash) % PALETTES.length]
-}
-
 function intentLabel(score: number): string {
   if (score >= 80) return '🔥 Great match'
   if (score >= 65) return '✨ Good match'
@@ -75,10 +54,30 @@ function intentLabel(score: number): string {
   return 'In the area'
 }
 
+function getProximityInfo(strength: number): { icon: string; text: string; color: string } {
+  if (strength > 0.8) return { icon: '📍', text: 'Very close', color: '#4CD964' }
+  if (strength > 0.5) return { icon: '📌', text: 'Nearby', color: '#FF9500' }
+  return { icon: '🗺️', text: 'In the area', color: '#8E8E93' }
+}
+
 export function SwipeCard({ peer, score, index, onSwipe, verified }: Props) {
+  const { width, height } = useWindowDimensions()
   const translateX = useSharedValue(0)
   const translateY = useSharedValue(0)
   const [gradA, gradB] = peerGradient(peer.peerId)
+
+  // Dynamic thresholds & screen dimensions — responsive to orientation changes
+  const swipeThreshold = useSharedValue(width * 0.28)
+  const superThreshold  = useSharedValue(-height * 0.25)
+  const screenW         = useSharedValue(width)
+  const screenH         = useSharedValue(height)
+
+  useEffect(() => {
+    swipeThreshold.value = width * 0.28
+    superThreshold.value  = -height * 0.25
+    screenW.value         = width
+    screenH.value         = height
+  }, [width, height])
 
   const isTopCard = index === 0
 
@@ -101,73 +100,96 @@ export function SwipeCard({ peer, score, index, onSwipe, verified }: Props) {
       const vy = event.velocityY
 
       // Super like — swipe up fast or far
-      if (translateY.value < SUPER_THRESHOLD || vy < -800) {
-        translateY.value = withTiming(-SCREEN_H, { duration: 300 })
+      if (translateY.value < superThreshold.value || vy < -900) {
+        translateY.value = withTiming(-screenH.value, { duration: 350, easing: (v) => v })
+        translateX.value = withTiming(0, { duration: 200 })
         runOnJS(onSwipe)(peer.peerId, 'super')
         return
       }
 
       // Like — swipe right
-      if (translateX.value > SWIPE_THRESHOLD || vx > 600) {
-        translateX.value = withTiming(SCREEN_W * 1.5, { duration: 300 })
+      if (translateX.value > swipeThreshold.value || vx > 700) {
+        translateX.value = withTiming(screenW.value * 1.5, { duration: 350, easing: (v) => v })
+        translateY.value = withTiming(0, { duration: 200 })
         runOnJS(onSwipe)(peer.peerId, 'like')
         return
       }
 
       // Pass — swipe left
-      if (translateX.value < -SWIPE_THRESHOLD || vx < -600) {
-        translateX.value = withTiming(-SCREEN_W * 1.5, { duration: 300 })
+      if (translateX.value < -swipeThreshold.value || vx < -700) {
+        translateX.value = withTiming(-screenW.value * 1.5, { duration: 350, easing: (v) => v })
+        translateY.value = withTiming(0, { duration: 200 })
         runOnJS(onSwipe)(peer.peerId, 'pass')
         return
       }
 
-      // Spring back
-      translateX.value = withSpring(0, { damping: 15, stiffness: 200 })
-      translateY.value = withSpring(0, { damping: 15, stiffness: 200 })
+      // Spring back with better feel
+      translateX.value = withSpring(0, SPRING_CONFIG)
+      translateY.value = withSpring(0, SPRING_CONFIG)
     },
   })
 
   const cardStyle = useAnimatedStyle(() => {
     const rotate = interpolate(
       translateX.value,
-      [-SCREEN_W / 2, 0, SCREEN_W / 2],
+      [-screenW.value / 2, 0, screenW.value / 2],
       [-ROTATION_FACTOR, 0, ROTATION_FACTOR],
       Extrapolation.CLAMP,
     )
-    const scale = index === 0 ? 1 : index === 1 ? 0.95 : 0.90
-    const yOffset = index === 1 ? 12 : index === 2 ? 24 : 0
+    
+    // Enhanced parallax for stacked cards with smoother transitions
+    const scale = index === 0 ? 1 : index === 1 ? 0.97 : 0.94
+    const yOffset = index === 1 ? 8 : index === 2 ? 16 : 0
+    const xOffset = index * 1.5  // Subtle parallax depth
+    const opacity = index === 0 ? 1 : index === 1 ? 0.9 : 0.8  // Fade background cards
 
     return {
       transform: [
-        { translateX: translateX.value },
+        { translateX: translateX.value + xOffset },
         { translateY: translateY.value + yOffset },
         { rotate: `${rotate}deg` },
         { scale },
       ],
+      opacity,
       zIndex: 10 - index,
     }
   })
 
-  // Stamp overlays
+  // Stamp overlays with scale animation
   const likeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      translateX.value, [0, SWIPE_THRESHOLD * 0.5], [0, 1], Extrapolation.CLAMP,
+      translateX.value, [0, swipeThreshold.value * 0.4], [0, 1], Extrapolation.CLAMP,
     ),
+    transform: [{
+      scale: interpolate(
+        translateX.value, [0, swipeThreshold.value * 0.4], [0.8, 1], Extrapolation.CLAMP,
+      ),
+    }],
   }))
   const passStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      translateX.value, [-SWIPE_THRESHOLD * 0.5, 0], [1, 0], Extrapolation.CLAMP,
+      translateX.value, [-swipeThreshold.value * 0.4, 0], [1, 0], Extrapolation.CLAMP,
     ),
+    transform: [{
+      scale: interpolate(
+        translateX.value, [-swipeThreshold.value * 0.4, 0], [1, 0.8], Extrapolation.CLAMP,
+      ),
+    }],
   }))
   const superStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
-      translateY.value, [SUPER_THRESHOLD * 0.5, 0], [1, 0], Extrapolation.CLAMP,
+      translateY.value, [superThreshold.value * 0.4, 0], [1, 0], Extrapolation.CLAMP,
     ),
+    transform: [{
+      scale: interpolate(
+        translateY.value, [superThreshold.value * 0.4, 0], [1, 0.8], Extrapolation.CLAMP,
+      ),
+    }],
   }))
 
   return (
     <PanGestureHandler onGestureEvent={gestureHandler} enabled={isTopCard}>
-      <Animated.View style={[styles.card, cardStyle, cardShadow]}>
+      <Animated.View style={[styles.card, { width: width - spacing.lg * 2, height: height * 0.68 }, cardStyle, cardShadow]}>
         {/* Background gradient avatar */}
         <LinearGradient
           colors={[gradA, gradB]}
@@ -176,7 +198,7 @@ export function SwipeCard({ peer, score, index, onSwipe, verified }: Props) {
           style={styles.gradient}
         >
           {/* Initials */}
-          <Text style={styles.initials}>
+          <Text style={[styles.initials, { fontSize: (width - spacing.lg * 2) * 0.28 }]}>
             {peer.displayName.slice(0, 1).toUpperCase()}
           </Text>
         </LinearGradient>
@@ -203,6 +225,19 @@ export function SwipeCard({ peer, score, index, onSwipe, verified }: Props) {
 
             <Text style={styles.intentBadge}>{intentLabel(score)}</Text>
 
+            {/* Proximity indicator */}
+            <View style={styles.proximityBadge}>
+              <Text style={styles.proximityIcon}>
+                {getProximityInfo(peer.signalStrength || 0.5).icon}
+              </Text>
+              <Text style={[
+                styles.proximityText,
+                { color: getProximityInfo(peer.signalStrength || 0.5).color }
+              ]}>
+                {getProximityInfo(peer.signalStrength || 0.5).text}
+              </Text>
+            </View>
+
             <View style={styles.tags}>
               {peer.interestTags.slice(0, 4).map(tag => (
                 <View key={tag} style={styles.tag}>
@@ -214,7 +249,7 @@ export function SwipeCard({ peer, score, index, onSwipe, verified }: Props) {
             {/* Score bar */}
             <View style={styles.scoreRow}>
               <View style={styles.scoreBar}>
-                <Animated.View style={[styles.scoreFill, { width: `${score}%` }]} />
+                <View style={[styles.scoreFill, { width: `${score}%` }]} />
               </View>
               <Text style={styles.scoreLabel}>{score}% match</Text>
             </View>
@@ -228,14 +263,9 @@ export function SwipeCard({ peer, score, index, onSwipe, verified }: Props) {
         <Animated.View style={[styles.stamp, styles.stampPass, passStyle]}>
           <Text style={styles.stampTextPass}>NOPE</Text>
         </Animated.View>
-        <Animated.View style={[styles.stamp, styles.stampSuper, superStyle]}>
+        <Animated.View style={[styles.stamp, { alignSelf: 'center', left: (width - spacing.lg * 2) / 2 - 70, top: (height * 0.68) * 0.35, borderColor: colors.superLike }, superStyle]}>
           <Text style={styles.stampTextSuper}>SUPER</Text>
         </Animated.View>
-
-        {/* PeerID — subtle texture at very bottom */}
-        <Text style={styles.peerId} numberOfLines={1}>
-          {peer.peerId.slice(0, 16)}…
-        </Text>
       </Animated.View>
     </PanGestureHandler>
   )
@@ -280,8 +310,6 @@ export function ActionButton({ onPress, icon, color, size = 'lg', bg }: ActionBt
 const styles = StyleSheet.create({
   card: {
     position:     'absolute',
-    width:        CARD_W,
-    height:       CARD_H,
     borderRadius: radius.card,
     overflow:     'hidden',
     backgroundColor: colors.surface,
@@ -292,7 +320,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   initials: {
-    fontSize:   CARD_W * 0.28,
     color:      'rgba(255,255,255,0.25)',
     fontWeight: '800',
     letterSpacing: -4,
@@ -390,12 +417,6 @@ const styles = StyleSheet.create({
     borderColor: colors.pass,
     transform:   [{ rotate: '-15deg' }],
   },
-  stampSuper: {
-    alignSelf:   'center',
-    left:        CARD_W / 2 - 70,
-    top:         CARD_H * 0.35,
-    borderColor: colors.superLike,
-  },
   stampTextLike: {
     ...typography.display,
     fontSize: fontSizes.xl,
@@ -431,15 +452,18 @@ const styles = StyleSheet.create({
     color:    'rgba(76, 217, 100, 0.85)',
     marginTop: -spacing.xs,
   },
-  peerId: {
-    position:  'absolute',
-    bottom:    spacing.xs,
-    left:      spacing.md,
-    right:     spacing.md,
-    ...typography.mono,
-    fontSize:  8,
-    color:     'rgba(255,255,255,0.12)',
-    textAlign: 'center',
+  proximityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  proximityIcon: {
+    fontSize: fontSizes.md,
+  },
+  proximityText: {
+    ...typography.label,
+    fontSize: fontSizes.xs,
+    fontWeight: '600',
   },
 
   actionBtn: {

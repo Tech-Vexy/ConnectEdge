@@ -8,7 +8,7 @@
 // peers back to the React Native thread via IPC.
 //
 // What this worklet does:
-//   - Joins the Hyperswarm DHT on topic H("proxim:campus:" + gridCell)
+//   - Joins the Hyperswarm DHT on topic H("connectedge:campus:" + gridCell)
 //     where gridCell is a 500m geohash tile (coarse location, not exact)
 //   - When a new peer connects, sends their public key + connection info
 //     to the RN thread via IPC
@@ -77,7 +77,7 @@ async function handleStart({ gridCell, peerId }) {
     const remotePubKey = b4a.toString(peerInfo.publicKey, 'hex')
 
     // Notify RN thread — it will check if this peer is also broadcasting
-    // a Proxim profile via gossipsub/BLE and handle matching there
+    // a ConnectEdge profile via gossipsub/BLE and handle matching there
     rpc.send(JSON.stringify({
       type: 'peer:discovered',
       payload: {
@@ -158,11 +158,11 @@ async function handleUpdateLocation({ gridCell, peerId }) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function deriveSwarmTopic(gridCell) {
-  // 32-byte topic = SHA-256("proxim:campus:" + gridCell)
+  // 32-byte topic = SHA-256("connectedge:campus:" + gridCell)
   // gridCell is a 500m geohash tile — coarse enough to not be identifying
   // but tight enough to only connect nearby devices
   const crypto    = require('crypto')
-  const input     = `proxim:campus:${gridCell}`
+  const input     = `connectedge:campus:${gridCell}`
   return crypto.createHash('sha256').update(input).digest()
 }
 

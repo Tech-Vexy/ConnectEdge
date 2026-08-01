@@ -167,7 +167,7 @@ export async function pickPhotoWithPermission(
   if (source === 'camera') {
     const camStatus = await checkCameraPermission()
     if (camStatus === 'denied') {
-      showPermissionAlert('Camera', 'Proxim needs camera access to take a photo to share with your match.')
+      showPermissionAlert('Camera', 'ConnectEdge needs camera access to take a photo to share with your match.')
       return null
     }
     if (camStatus === 'undetermined') {
@@ -185,7 +185,7 @@ export async function pickPhotoWithPermission(
   // Library
   const libStatus = await checkPhotosPermission()
   if (libStatus === 'denied') {
-    showPermissionAlert('Photo Library', 'Proxim needs photo library access to share photos with your match.')
+    showPermissionAlert('Photo Library', 'ConnectEdge needs photo library access to share photos with your match.')
     return null
   }
   if (libStatus === 'undetermined') {

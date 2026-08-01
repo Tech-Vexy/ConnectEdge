@@ -6,7 +6,7 @@
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, Pressable, Modal,
-  TextInput, ScrollView, Alert,
+  TextInput, ScrollView, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native'
 import { useStore }  from '../store'
 import { REPORT_CATEGORIES, type ReportCategory } from '../lib/safety'
@@ -56,6 +56,10 @@ export function ReportModal({ visible, peerId, peerName, onClose, onBlocked }: P
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.container}>
         {/* Handle bar */}
         <View style={styles.handle} />
@@ -183,6 +187,7 @@ export function ReportModal({ visible, peerId, peerName, onClose, onBlocked }: P
           </View>
         )}
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }

@@ -13,11 +13,12 @@ import * as BackgroundFetch from 'expo-background-fetch'
 import * as TaskManager     from 'expo-task-manager'
 import * as Notifications   from 'expo-notifications'
 import * as SecureStore     from 'expo-secure-store'
-import { openBox }          from './crypto'
+import { openBox, signMessage }          from './crypto'
 import type { KeyPair }     from './crypto'
-import { hexToUint8Array }  from './bytes'
+import { hexToUint8Array, uint8ArrayToHex }  from './bytes'
 import type { ChatMessage, RelayLikeItem, RelayMatchItem, RelayItemType } from './types'
 import type { EncryptedPhoto } from './photos'
+import { appConfig } from './config'
 
 export type RelayItem =
   | ChatMessage
@@ -25,11 +26,10 @@ export type RelayItem =
   | RelayLikeItem
   | RelayMatchItem
 
-const TASK_NAME        = 'proxim-relay-poll'
-const RELAY_BASE_URL   = process.env.EXPO_PUBLIC_RELAY_URL ?? 'https://relay.proxim.workers.dev'
+const TASK_NAME        = 'connectedge-relay-poll'
 const POLL_INTERVAL_MS = 30_000
-const KEY_PEER_ID_HASH = 'proxim_relay_hash_v1'
-const KEY_QUEUE        = 'proxim_relay_queue_v1'
+const KEY_PEER_ID_HASH = 'connectedge_relay_hash_v1'
+const KEY_QUEUE        = 'connectedge_relay_queue_v1'
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ function notificationContentForItem(item: RelayItem): {
     case 'like':
       return {
         title:              'Someone nearby liked you',
-        body:               'Open Proxim to find out who',
+        body:               'Open ConnectEdge to find out who',
         categoryIdentifier: 'MATCH',
       }
     case 'match':
@@ -110,7 +110,7 @@ function notificationContentForItem(item: RelayItem): {
         categoryIdentifier: 'MATCH',
       }
     default:
-      return { title: 'Proxim', body: 'New activity' }
+      return { title: 'ConnectEdge', body: 'New activity' }
   }
 }
 
@@ -121,11 +121,16 @@ export async function pollRelay(
   myKeys:     KeyPair,
 ): Promise<RelayItem[]> {
   const results: RelayItem[] = []
+  if (!appConfig.relay.enabled) return results
+
+  // Build auth headers: sign an empty GET body with ed25519 key
+  const authHeaders = await buildAuthHeaders(peerIdHash, myKeys)
 
   let response: Response
   try {
-    response = await fetch(`${RELAY_BASE_URL}/envelope/${peerIdHash}`, {
-      signal: AbortSignal.timeout(8_000),
+    response = await fetch(`${appConfig.relay.baseUrl}/envelope/${peerIdHash}`, {
+      headers: authHeaders,
+      signal:  AbortSignal.timeout(8_000),
     })
   } catch {
     return results
@@ -171,9 +176,11 @@ export async function pollRelay(
           break
       }
 
-      // Delete from relay after successful read
-      fetch(`${RELAY_BASE_URL}/envelope/${peerIdHash}/${env.id}`, {
+      // Delete from relay after successful read (authenticated)
+      const deleteHeaders = await buildAuthHeaders(peerIdHash, myKeys)
+      fetch(`${appConfig.relay.baseUrl}/envelope/${peerIdHash}/${env.id}`, {
         method: 'DELETE',
+        headers: deleteHeaders,
       }).catch(() => {})
 
     } catch (e) {
@@ -189,6 +196,24 @@ function hintToItem(hint: string): RelayItem {
   if (hint === 'match') return { type: 'match', withPeerId: '', displayName: 'Someone', ts: Date.now() }
   // Default: opaque chat notification
   return { id: '', from: '', text: 'New message', ts: Date.now() } as ChatMessage
+}
+
+/**
+ * Build authentication headers for relay endpoints.
+ * Signs an empty payload with the local ed25519 key, then sends
+ * the signature + public key so the relay can verify ownership
+ * of the peerIdHash (SHA256(pubKeyHex).slice(0,32) === peerIdHash).
+ */
+async function buildAuthHeaders(
+  peerIdHash: string,
+  keys:       KeyPair,
+): Promise<Record<string, string>> {
+  const payload = new Uint8Array(0) // empty body for GET/DELETE
+  const signed  = await signMessage(payload, keys.edSecretKey, keys.edPublicKey)
+  return {
+    'X-Peer-Sig':    signed.signature,
+    'X-Peer-PubKey': signed.publicKey,
+  }
 }
 
 // ─── Queue (shared between background task + FCM handler) ─────────────────────
@@ -251,8 +276,8 @@ export class RelayPoller {
 TaskManager.defineTask(TASK_NAME, async () => {
   try {
     const [xPubHex, xSecHex, peerIdHash] = await Promise.all([
-      SecureStore.getItemAsync('proxim_x_public_v1'),
-      SecureStore.getItemAsync('proxim_x_secret_v1'),
+      SecureStore.getItemAsync('connectedge_x_public_v1'),
+      SecureStore.getItemAsync('connectedge_x_secret_v1'),
       SecureStore.getItemAsync(KEY_PEER_ID_HASH),
     ])
 
@@ -280,6 +305,7 @@ TaskManager.defineTask(TASK_NAME, async () => {
 })
 
 export async function registerBackgroundPoll(peerIdHash: string): Promise<void> {
+  if (!appConfig.relay.enabled) return
   await SecureStore.setItemAsync(KEY_PEER_ID_HASH, peerIdHash)
 
   const isRegistered = await TaskManager.isTaskRegisteredAsync(TASK_NAME)

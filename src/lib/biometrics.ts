@@ -18,7 +18,7 @@ import * as LocalAuthentication from 'expo-local-authentication'
 import * as SecureStore          from 'expo-secure-store'
 import { Platform }              from 'react-native'
 
-const KEY_BIOMETRIC_ENABLED = 'proxim_biometric_enabled_v1'
+const KEY_BIOMETRIC_ENABLED = 'connectedge_biometric_enabled_v1'
 
 export type BiometricLevel = 'high' | 'medium' | 'low'
 
@@ -154,9 +154,9 @@ export async function loadKeysWithBiometric(
  */
 export const SECURE_STORE_BIOMETRIC_OPTIONS: SecureStore.SecureStoreOptions = {
   requireAuthentication: true,
-  authenticationPrompt:  'Authenticate to access your Proxim identity',
+  authenticationPrompt:  'Authenticate to access your ConnectEdge identity',
   // keychainService groups keys under a single Keychain service name
-  keychainService: 'com.proxim.keys',
+  keychainService: 'com.connectedge.keys',
 }
 
 /**
@@ -164,5 +164,5 @@ export const SECURE_STORE_BIOMETRIC_OPTIONS: SecureStore.SecureStoreOptions = {
  */
 export const SECURE_STORE_STANDARD_OPTIONS: SecureStore.SecureStoreOptions = {
   requireAuthentication: false,
-  keychainService: 'com.proxim.app',
+  keychainService: 'com.connectedge.app',
 }

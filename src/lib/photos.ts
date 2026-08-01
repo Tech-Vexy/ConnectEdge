@@ -26,7 +26,7 @@ import { pickPhotoWithPermission }          from './permissions'
 
 export { clearPhotoCache } from './cache-manager'
 
-export const PROTO_PHOTO  = '/proxim/photo/1.0.0'
+export const PROTO_PHOTO  = '/connectedge/photo/1.0.0'
 const MAX_PHOTO_BYTES     = 2 * 1024 * 1024   // 2MB max per photo
 
 export interface PhotoMeta {

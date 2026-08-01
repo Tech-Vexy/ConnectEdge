@@ -4,17 +4,16 @@ import { View, Text, StyleSheet, Pressable } from 'react-native'
 import { colors, typography, spacing, fontSizes, radius } from '../theme'
 
 interface Props { children: React.ReactNode; fallback?: string }
-interface State { error: Error | null }
+interface State { error: Error | null; retryKey: number }
 
 export class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { error: null }
+  state: State = { error: null, retryKey: 0 }
 
   static getDerivedStateFromError(error: Error): State {
-    return { error }
+    return { error, retryKey: 0 }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // In production: send to Sentry / Bugsnag / logfire
     console.error('ErrorBoundary caught:', error, info.componentStack)
   }
 
@@ -29,14 +28,16 @@ export class ErrorBoundary extends React.Component<Props, State> {
           </Text>
           <Pressable
             style={styles.button}
-            onPress={() => this.setState({ error: null })}
+            onPress={() => this.setState({ error: null, retryKey: this.state.retryKey + 1 })}
           >
             <Text style={styles.buttonText}>Try again</Text>
           </Pressable>
         </View>
       )
     }
-    return this.props.children
+    // Changing the key forces a full remount of children on retry,
+    // clearing any broken state from the previous render.
+    return <View key={this.state.retryKey}>{this.props.children}</View>
   }
 }
 

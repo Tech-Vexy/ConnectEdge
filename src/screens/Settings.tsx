@@ -19,7 +19,6 @@ import {
   setBiometricEnabled, type BiometricCapability,
 } from '../lib/biometrics'
 import { safetyRegistry } from '../lib/safety'
-import { proximNode }     from '../lib/node'
 import { SCORE_DIMS }     from '../lib/types'
 import { colors, typography, spacing, fontSizes, radius } from '../theme'
 
@@ -277,13 +276,16 @@ function DataTab() {
       setBioCap(cap)
       if (cap.enrolled) isBiometricEnabled().then(setBioEnabled)
     })
-    setExtendedRangeOn(proximNode.hyperswarmEnabled)
+    void import('../lib/node').then(({ connectEdgeNode }) => {
+      setExtendedRangeOn(connectEdgeNode.hyperswarmEnabled)
+    })
   }, [])
 
   const handleExtendedRangeToggle = async (value: boolean) => {
     setExtendedRangeLoading(true)
+    const { connectEdgeNode } = await import('../lib/node')
     if (value) {
-      const ok = await proximNode.enableHyperswarmDiscovery()
+      const ok = await connectEdgeNode.enableHyperswarmDiscovery()
       setExtendedRangeOn(ok)
       if (!ok) {
         Alert.alert(
@@ -292,7 +294,7 @@ function DataTab() {
         )
       }
     } else {
-      await proximNode.disableHyperswarmDiscovery()
+      await connectEdgeNode.disableHyperswarmDiscovery()
       setExtendedRangeOn(false)
     }
     setExtendedRangeLoading(false)
@@ -333,11 +335,11 @@ function DataTab() {
             await unregisterBackgroundPoll()
             await clearPhotoCache()
             const keys = [
-              'proxim_profile_v1',    'proxim_blocked_v1',
-              'proxim_ed_secret_v1',  'proxim_ed_public_v1',
-              'proxim_x_secret_v1',   'proxim_x_public_v1',
-              'proxim_relay_hash_v1', 'proxim_relay_queue_v1',
-              'proxim_biometric_enabled_v1', 'proxim_photo_manifest_v1',
+              'connectedge_profile_v1',    'connectedge_blocked_v1',
+              'connectedge_ed_secret_v1',  'connectedge_ed_public_v1',
+              'connectedge_x_secret_v1',   'connectedge_x_public_v1',
+              'connectedge_relay_hash_v1', 'connectedge_relay_queue_v1',
+              'connectedge_biometric_enabled_v1', 'connectedge_photo_manifest_v1',
             ]
             await Promise.all(keys.map(k => SecureStore.deleteItemAsync(k).catch(() => {})))
             router.replace('/onboarding')
@@ -416,7 +418,7 @@ function DataTab() {
                   <View style={[
                     styles.cacheFill,
                     {
-                      width: `${Math.min(cacheStats.usagePct, 100)}%` as any,
+                      width: `${Math.min(cacheStats.usagePct, 100)}%`,
                       backgroundColor: cacheStats.usagePct > 80 ? colors.danger : colors.signalStrong,
                     },
                   ]} />
@@ -432,6 +434,30 @@ function DataTab() {
         )}
       </View>
 
+      <SectionHeader title="Safety tips" />
+      <View style={styles.card}>
+        <Row
+          label="Meet in public places"
+          value="For first meetings, choose busy public locations like cafes or restaurants"
+        />
+        <Row
+          label="Tell a friend"
+          value="Share your plans with someone you trust before meeting"
+        />
+        <Row
+          label="Trust your instincts"
+          value="If something feels off, it's okay to leave or end the conversation"
+        />
+        <Row
+          label="Protect your info"
+          value="Don't share personal details like address or workplace until you trust them"
+        />
+        <Row
+          label="Report issues"
+          value="Use the block/report feature if someone makes you uncomfortable"
+        />
+      </View>
+
       <SectionHeader title="Safety reports" />
       <View style={styles.card}>
         <Row
@@ -442,8 +468,17 @@ function DataTab() {
           label="Export report log"
           onPress={async () => {
             const text = await safetyRegistry.exportReports()
-            await Share.share({ message: text, title: 'Proxim Safety Report' })
+            await Share.share({ message: text, title: 'ConnectEdge Safety Report' })
           }}
+        />
+      </View>
+
+      <SectionHeader title="Emergency contact" />
+      <View style={styles.card}>
+        <Row
+          label="Set emergency contact"
+          value="Add a trusted contact for quick access"
+          onPress={() => Alert.alert('Coming soon', 'Emergency contact feature will be added soon')}
         />
       </View>
 
@@ -599,7 +634,7 @@ const styles = StyleSheet.create({
   weightLabel: { ...typography.label, fontSize: fontSizes.sm, color: colors.textSecondary, marginBottom: 6 },
   weightControls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   weightBtn: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: colors.surfaceHigh,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceHigh,
     borderWidth: 0.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
   },
   weightBtnText: { fontSize: 16, color: colors.textSecondary, lineHeight: 20 },

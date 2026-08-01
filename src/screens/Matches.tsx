@@ -3,46 +3,20 @@
 //   New Matches — horizontal bubble row (unread, no messages yet)
 //   Messages    — conversation list sorted by last message time
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useCallback, useState } from 'react'
 import {
   View, Text, StyleSheet, Pressable,
-  ScrollView, FlatList, Dimensions,
+  ScrollView, FlatList, RefreshControl, Image,
 } from 'react-native'
 import { SafeAreaView }  from 'react-native-safe-area-context'
 import { router }        from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useStore }      from '../store'
 import type { Match }    from '../lib/types'
+import { peerGradient }  from '../lib/peer-gradient'
+import { timeAgo }       from '../lib/format'
 import { TabBar, type TabId } from '../components/TabBar'
 import { colors, typography, fontSizes, spacing, radius, cardShadow } from '../theme'
-
-const { width: W } = Dimensions.get('window')
-
-function peerGradient(peerId: string): [string, string] {
-  const PALETTES: [string, string][] = [
-    ['#667eea','#764ba2'],['#f093fb','#f5576c'],
-    ['#4facfe','#00f2fe'],['#43e97b','#38f9d7'],
-    ['#fa709a','#fee140'],['#a18cd1','#fbc2eb'],
-    ['#ffecd2','#fcb69f'],['#ff9a9e','#fecfef'],
-    ['#a1c4fd','#c2e9fb'],['#fddb92','#d1fdff'],
-  ]
-  let hash = 0
-  for (let i = 0; i < peerId.length; i++) {
-    hash = ((hash << 5) - hash) + peerId.charCodeAt(i)
-    hash |= 0
-  }
-  return PALETTES[Math.abs(hash) % PALETTES.length]
-}
-
-function timeAgo(ts: number): string {
-  const diff = Date.now() - ts
-  const m = Math.floor(diff / 60_000)
-  const h = Math.floor(diff / 3_600_000)
-  if (m < 1)  return 'just now'
-  if (m < 60) return `${m}m`
-  if (h < 24) return `${h}h`
-  return `${Math.floor(h / 24)}d`
-}
 
 // ─── New match bubble ─────────────────────────────────────────────────────────
 
@@ -55,9 +29,13 @@ function NewMatchBubble({ match }: { match: Match }) {
       style={styles.bubble}
       onPress={() => { openChat(match.peerId); router.push('/chat') }}
     >
-      <LinearGradient colors={[a, b]} style={styles.bubbleGradient} start={{x:0,y:0}} end={{x:1,y:1}}>
-        <Text style={styles.bubbleInitial}>{match.displayName.slice(0, 1).toUpperCase()}</Text>
-      </LinearGradient>
+      {match.photoUri ? (
+        <Image source={{ uri: match.photoUri }} style={styles.bubbleGradient} />
+      ) : (
+        <LinearGradient colors={[a, b]} style={styles.bubbleGradient} start={{x:0,y:0}} end={{x:1,y:1}}>
+          <Text style={styles.bubbleInitial}>{match.displayName.slice(0, 1).toUpperCase()}</Text>
+        </LinearGradient>
+      )}
       <View style={styles.bubbleNewDot} />
       <Text style={styles.bubbleName} numberOfLines={1}>{match.displayName}</Text>
     </Pressable>
@@ -79,9 +57,13 @@ function ConversationRow({ match }: { match: Match }) {
       onPress={() => { openChat(match.peerId); router.push('/chat') }}
     >
       <View style={styles.convoAvatarWrap}>
-        <LinearGradient colors={[a, b]} style={styles.convoAvatar} start={{x:0,y:0}} end={{x:1,y:1}}>
-          <Text style={styles.convoInitial}>{match.displayName.slice(0, 1).toUpperCase()}</Text>
-        </LinearGradient>
+        {match.photoUri ? (
+          <Image source={{ uri: match.photoUri }} style={styles.convoAvatar} />
+        ) : (
+          <LinearGradient colors={[a, b]} style={styles.convoAvatar} start={{x:0,y:0}} end={{x:1,y:1}}>
+            <Text style={styles.convoInitial}>{match.displayName.slice(0, 1).toUpperCase()}</Text>
+          </LinearGradient>
+        )}
         {hasUnread && <View style={styles.unreadDot} />}
       </View>
 
@@ -111,8 +93,16 @@ export default function Matches({ activeTab, onTabChange }: {
   const matches     = useStore(s => s.matches)
   const clearUnread = useStore(s => s.clearUnread)
   const messages    = useStore(s => s.messages)
+  const handleAppForeground = useStore(s => s.handleAppForeground)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => { clearUnread() }, [])
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await handleAppForeground()
+    setRefreshing(false)
+  }, [handleAppForeground])
 
   const matchList = Array.from(matches.values())
     .sort((a, b) => b.matchedAt - a.matchedAt)
@@ -157,7 +147,18 @@ export default function Matches({ activeTab, onTabChange }: {
             </Pressable>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={styles.scroll}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.pulse}
+                colors={[colors.pulse]}
+              />
+            }
+          >
             {/* New matches row */}
             {newMatches.length > 0 && (
               <View style={styles.section}>

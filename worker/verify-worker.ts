@@ -1,5 +1,5 @@
 /**
- * Proxim Verification Worker
+ * ConnectEdge Verification Worker
  * Handles institutional email OTP flow and badge signing.
  *
  * Endpoints:
@@ -19,14 +19,14 @@
  *   VERIFY_STORE          — KV namespace
  *   WORKER_SIGNING_SECRET — ed25519 secret key hex (wrangler secret)
  *   SENDGRID_API_KEY      — for email delivery (wrangler secret)
- *   PROXIM_FROM_EMAIL     — sender address (wrangler var)
+ *   CONNECTEDGE_FROM_EMAIL     — sender address (wrangler var)
  */
 
 export interface VerifyEnv {
   VERIFY_STORE:          KVNamespace
   WORKER_SIGNING_SECRET: string
   SENDGRID_API_KEY:      string
-  PROXIM_FROM_EMAIL:     string
+  CONNECTEDGE_FROM_EMAIL:     string
 }
 
 const OTP_TTL_SECONDS  = 600     // 10 minutes
@@ -80,8 +80,10 @@ async function handleRequestOTP(request: Request, env: VerifyEnv): Promise<Respo
     return json({ error: 'Too many verification attempts today. Try again tomorrow.' }, 429)
   }
 
-  // Generate 6-digit OTP
-  const otp  = String(Math.floor(100000 + Math.random() * 900000))
+  // Generate 6-digit OTP using cryptographically secure random
+  const otpDigits = new Uint32Array(1)
+  crypto.getRandomValues(otpDigits)
+  const otp  = String(100000 + (otpDigits[0] % 900000))
 
   // Generate session token (opaque, not linked to email after this point)
   const sessionToken  = crypto.randomUUID()
@@ -267,30 +269,30 @@ async function sendOTPEmail(
       },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: to }] }],
-        from:    { email: env.PROXIM_FROM_EMAIL, name: 'Proxim' },
-        subject: `Your Proxim verification code: ${otp}`,
+        from:    { email: env.CONNECTEDGE_FROM_EMAIL, name: 'ConnectEdge' },
+        subject: `Your ConnectEdge verification code: ${otp}`,
         content: [{
           type:  'text/plain',
           value: [
-            `Your Proxim verification code is: ${otp}`,
+            `Your ConnectEdge verification code is: ${otp}`,
             '',
             `This confirms you are a member of ${institution}.`,
             `The code expires in 10 minutes.`,
             '',
-            `Your personal information is never stored by Proxim.`,
+            `Your personal information is never stored by ConnectEdge.`,
             `This code proves membership only — no identifying data is shared.`,
           ].join('\n'),
         }, {
           type:  'text/html',
           value: `
             <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px">
-              <h2 style="color:#FF4458;margin-bottom:8px">Proxim</h2>
+              <h2 style="color:#FF4458;margin-bottom:8px">ConnectEdge</h2>
               <p style="color:#666;margin-bottom:24px">Your verification code</p>
               <div style="background:#f5f5f5;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
                 <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#111">${otp}</span>
               </div>
               <p style="color:#444">This confirms you are a member of <strong>${institution}</strong>.</p>
-              <p style="color:#888;font-size:13px">Expires in 10 minutes. Your personal information is never stored by Proxim.</p>
+              <p style="color:#888;font-size:13px">Expires in 10 minutes. Your personal information is never stored by ConnectEdge.</p>
             </div>
           `,
         }],
@@ -318,6 +320,34 @@ async function getKnownDomains(env: VerifyEnv): Promise<InstitutionMap> {
     'oauife.edu.ng':  { name: 'Obafemi Awolowo University', tier: 'student' },
     'abu.edu.ng':     { name: 'Ahmadu Bello University',    tier: 'student' },
     'unn.edu.ng':     { name: 'UNN',                        tier: 'student' },
+    'uonbi.ac.ke':    { name: 'University of Nairobi',      tier: 'student' },
+    'ku.ac.ke':       { name: 'Kenyatta University',        tier: 'student' },
+    'mu.ac.ke':       { name: 'Moi University',             tier: 'student' },
+    'jkuat.ac.ke':    { name: 'JKUAT',                      tier: 'student' },
+    'kyu.ac.ke':      { name: 'Kirinyaga University',       tier: 'student' },
+    'egerton.ac.ke':  { name: 'Egerton University',         tier: 'student' },
+    'maseno.ac.ke':   { name: 'Maseno University',          tier: 'student' },
+    'mmust.ac.ke':    { name: 'Masinde Muliro University',  tier: 'student' },
+    'strathmore.edu': { name: 'Strathmore University',      tier: 'student' },
+    'usiu.ac.ke':     { name: 'USIU-Africa',                tier: 'student' },
+    'tum.ac.ke':      { name: 'Technical University of Mombasa', tier: 'student' },
+    'dkut.ac.ke':     { name: 'Dedan Kimathi University',   tier: 'student' },
+    'pwani.ac.ke':    { name: 'Pwani University',           tier: 'student' },
+    'mku.ac.ke':      { name: 'Mount Kenya University',     tier: 'student' },
+    'kca.ac.ke':      { name: 'KCA University',             tier: 'student' },
+    'students.uonbi.ac.ke':   { name: 'University of Nairobi',   tier: 'student' },
+    'students.ku.ac.ke':      { name: 'Kenyatta University',     tier: 'student' },
+    'students.mu.ac.ke':      { name: 'Moi University',          tier: 'student' },
+    'students.jkuat.ac.ke':   { name: 'JKUAT',                   tier: 'student' },
+    'students.kyu.ac.ke':     { name: 'Kirinyaga University',    tier: 'student' },
+    'students.egerton.ac.ke': { name: 'Egerton University',      tier: 'student' },
+    'students.maseno.ac.ke':  { name: 'Maseno University',       tier: 'student' },
+    'students.mmust.ac.ke':   { name: 'Masinde Muliro University', tier: 'student' },
+    'students.tum.ac.ke':     { name: 'Technical University of Mombasa', tier: 'student' },
+    'students.dkut.ac.ke':    { name: 'Dedan Kimathi University', tier: 'student' },
+    'students.pwani.ac.ke':   { name: 'Pwani University',        tier: 'student' },
+    'students.mku.ac.ke':     { name: 'Mount Kenya University',  tier: 'student' },
+    'students.kca.ac.ke':     { name: 'KCA University',          tier: 'student' },
     'ox.ac.uk':       { name: 'University of Oxford',       tier: 'student' },
     'cam.ac.uk':      { name: 'University of Cambridge',    tier: 'student' },
     'ucl.ac.uk':      { name: 'UCL',                        tier: 'student' },

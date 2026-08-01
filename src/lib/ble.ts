@@ -4,7 +4,7 @@
 // Peripheral mode (advertising) — react-native-ble-advertiser
 //
 // Advertisement payload (11 bytes total):
-//   [2 bytes]  UUID prefix  (0x68, 0x65 — "he" for Proxim hello)
+//   [2 bytes]  UUID prefix  (0x68, 0x65 — "he" for ConnectEdge hello)
 //   [8 bytes]  SHA-256(peerId) truncated to 8 bytes
 //   [1 byte]   Protocol version (0x01)
 //
@@ -24,8 +24,8 @@ import { Platform, PermissionsAndroid } from 'react-native'
 import * as ExpoCrypto                from 'expo-crypto'
 import { uint8ArrayToHex }            from './bytes'
 
-export const PROXIM_SERVICE_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
-const PROXIM_UUID_PREFIX = [0x68, 0x65]      // "he" — Proxim hello marker
+export const CONNECTEDGE_SERVICE_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
+const CONNECTEDGE_UUID_PREFIX = [0x68, 0x65]      // "he" — ConnectEdge hello marker
 const PROTO_VERSION      = 0x01
 
 // RSSI calibration (dBm)
@@ -41,7 +41,7 @@ export interface BLEPeer {
 
 export type BLEEventHandler = (peer: BLEPeer) => void
 
-export class ProximBLE {
+export class ConnectEdgeBLE {
   private manager:      BleManager | null = null
   private scanTimer?:   ReturnType<typeof setInterval>
   private listeners:    BLEEventHandler[] = []
@@ -100,14 +100,14 @@ export class ProximBLE {
       // Manufacturer data: UUID prefix + peerIdHash bytes + version
       const hashBytes = hexToBytes(this.myPeerIdHash)  // 8 bytes
       const mfrData   = new Uint8Array([
-        ...PROXIM_UUID_PREFIX,
+        ...CONNECTEDGE_UUID_PREFIX,
         ...hashBytes,
         PROTO_VERSION,
       ])
 
-      await BLEAdvertiser.setCompanyId(0x05AC)  // Apple company ID — works cross-platform
+      await BLEAdvertiser.setCompanyId(0xFFFF)  // Custom test company ID — avoids Apple filtering
       await BLEAdvertiser.broadcast(
-        PROXIM_SERVICE_UUID,
+        CONNECTEDGE_SERVICE_UUID,
         Array.from(mfrData),
         {
           advertiseMode:   (BLEAdvertiser as any).ADVERTISE_MODE_LOW_LATENCY,
@@ -128,7 +128,9 @@ export class ProximBLE {
     try {
       await BLEAdvertiser.stopBroadcast()
       this.isAdvertising = false
-    } catch {}
+    } catch (e) {
+      console.warn('BLE stop advertise error:', e)
+    }
   }
 
   // ─── Scanning (central) ───────────────────────────────────────────────────
@@ -139,7 +141,7 @@ export class ProximBLE {
 
     const scan = () => {
       this.manager!.startDeviceScan(
-        [PROXIM_SERVICE_UUID],
+        [CONNECTEDGE_SERVICE_UUID],
         { allowDuplicates: true, scanMode: 2 }, // SCAN_MODE_BALANCED on Android
         (error, device) => {
           if (error) { console.warn('BLE scan error:', error); return }
@@ -204,29 +206,36 @@ export class ProximBLE {
       const bytes = Buffer.from(mfrData, 'base64')
       // bytes[0..1] = company ID, bytes[2..3] = UUID prefix, bytes[4..11] = hash
       if (bytes.length < 12) return null
-      if (bytes[2] !== PROXIM_UUID_PREFIX[0] || bytes[3] !== PROXIM_UUID_PREFIX[1]) return null
+      if (bytes[2] !== CONNECTEDGE_UUID_PREFIX[0] || bytes[3] !== CONNECTEDGE_UUID_PREFIX[1]) return null
       return bytes.slice(4, 12).toString('hex')
-    } catch { return null }
+    } catch (e) { console.warn('BLE mfr parse error:', e); return null }
   }
 
   private extractFromServiceData(device: Device): string | null {
-    const sd = device.serviceData?.[PROXIM_SERVICE_UUID]
+    const sd = device.serviceData?.[CONNECTEDGE_SERVICE_UUID]
     if (!sd) return null
     try {
       const bytes = Buffer.from(sd, 'base64')
       if (bytes.length < 9) return null
       return bytes.slice(2, 10).toString('hex')
-    } catch { return null }
+    } catch (e) { console.warn('BLE service data parse error:', e); return null }
   }
 
   // ─── Signal lookup ────────────────────────────────────────────────────────
 
+  // Cache peerId → hash mappings to avoid recomputing SHA-256 on every call
+  private peerIdHashCache = new Map<string, string>()
+
   async getSignalStrength(peerId: string): Promise<number> {
-    const hashBuf = await ExpoCrypto.digest(
-      ExpoCrypto.CryptoDigestAlgorithm.SHA256,
-      new TextEncoder().encode(peerId),
-    )
-    const hash = uint8ArrayToHex(new Uint8Array(hashBuf)).slice(0, 16)
+    let hash = this.peerIdHashCache.get(peerId)
+    if (!hash) {
+      const hashBuf = await ExpoCrypto.digest(
+        ExpoCrypto.CryptoDigestAlgorithm.SHA256,
+        new TextEncoder().encode(peerId),
+      )
+      hash = uint8ArrayToHex(new Uint8Array(hashBuf)).slice(0, 16)
+      this.peerIdHashCache.set(peerId, hash)
+    }
     return this.knownPeers.get(hash)?.signalStrength ?? 0.5
   }
 
@@ -301,4 +310,4 @@ async function requestAndroidBLEPermissions(): Promise<boolean> {
   return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED)
 }
 
-export const proximBLE = new ProximBLE()
+export const connectEdgeBLE = new ConnectEdgeBLE()

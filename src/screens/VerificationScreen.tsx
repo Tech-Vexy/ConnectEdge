@@ -20,7 +20,7 @@ import {
   INSTITUTIONS, TIER_LABELS, TIER_ICONS,
   type VerificationBadge, type OTPChallenge,
 } from '../lib/zk-identity'
-import { proximNode }  from '../lib/node'
+import { appConfig } from '../lib/config'
 import { colors, typography, fontSizes, spacing, radius, gradients } from '../theme'
 
 const { width: W } = Dimensions.get('window')
@@ -38,6 +38,34 @@ export default function VerificationScreen() {
   const [countdown,    setCountdown]    = useState(0)
 
   const otpRef = useRef<TextInput>(null)
+
+  if (!appConfig.verify.enabled) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <View style={styles.header}>
+            <Pressable style={styles.backBtn} onPress={() => router.back()}>
+              <Text style={styles.backBtnText}>‹</Text>
+            </Pressable>
+            <Text style={styles.headerTitle}>Verification</Text>
+            <View style={{ width: 36 }} />
+          </View>
+
+          <View style={styles.content}>
+            <View style={styles.stepWrap}>
+              <Text style={styles.stepTitle}>Verification is disabled</Text>
+              <Text style={styles.stepBody}>
+                This build is running in P2P-only mode, so verification and relay-backed features are turned off.
+              </Text>
+              <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
+                <Text style={styles.secondaryBtnText}>Go back</Text>
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
+      </View>
+    )
+  }
 
   // Load existing badge on mount
   useEffect(() => {
@@ -82,8 +110,9 @@ export default function VerificationScreen() {
     setError(null)
     setLoading(true)
 
-    const keys   = proximNode.keyPair
-    const peerId = proximNode.peerId
+    const { connectEdgeNode } = await import('../lib/node')
+    const keys   = connectEdgeNode.keyPair
+    const peerId = connectEdgeNode.peerId
 
     if (!keys || !peerId) {
       setError('Node not ready — go back to the discover screen first')
@@ -349,6 +378,8 @@ const OTPInput = React.forwardRef<TextInput, {
       autoComplete="one-time-code"
       caretHidden={false}
       textAlign="center"
+      accessibilityLabel="Verification code"
+      accessibilityHint="Enter the 6-digit code sent to your email"
     />
     {/* Visual digit boxes */}
     <View style={styles.otpBoxes} pointerEvents="none">
@@ -487,9 +518,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.md,
   },
   institutionBadge: {
-    backgroundColor: colors.like + '18',
+    backgroundColor: colors.likeAlpha18,
     borderRadius: radius.sm, padding: spacing.sm,
-    borderWidth: 0.5, borderColor: colors.like + '44',
+    borderWidth: 0.5, borderColor: 'rgba(77,217,100,0.27)',
   },
   institutionText: { ...typography.label, fontSize: fontSizes.sm, color: colors.like },
 
@@ -527,8 +558,8 @@ const styles = StyleSheet.create({
 
   // Error
   errorBanner: {
-    backgroundColor: colors.pass + '18', borderRadius: radius.sm,
-    borderWidth: 0.5, borderColor: colors.pass + '44', padding: spacing.md,
+    backgroundColor: colors.passAlpha18, borderRadius: radius.sm,
+    borderWidth: 0.5, borderColor: colors.passAlpha44, padding: spacing.md,
   },
   errorBannerText: { ...typography.body, fontSize: fontSizes.sm, color: colors.pass, lineHeight: 20 },
 

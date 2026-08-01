@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, Pressable,
-  Dimensions, Animated as RNAnimated,
+  useWindowDimensions, Animated as RNAnimated,
 } from 'react-native'
 import { SafeAreaView }   from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -12,14 +12,12 @@ import * as ExpoCrypto    from 'expo-crypto'
 import { router }         from 'expo-router'
 import { colors, typography, fontSizes, spacing, radius, gradients } from '../theme'
 
-const { width: W, height: H } = Dimensions.get('window')
-
 const SLIDES = [
   {
     gradient: ['#FF4458', '#FF7854'] as [string, string],
     icon:     '◈',
     headline: 'Dating, nearby.',
-    body:     'Proxim finds people around you using Bluetooth and local Wi-Fi — no GPS, no servers, just the people in the same room.',
+    body:     'ConnectEdge finds people around you using Bluetooth and local Wi-Fi — no GPS, no servers, just the people in the same room.',
   },
   {
     gradient: ['#764ba2', '#667eea'] as [string, string],
@@ -36,6 +34,7 @@ const SLIDES = [
 ]
 
 export default function Onboarding() {
+  const { width } = useWindowDimensions()
   const [step,   setStep]   = useState(0)
   const [keyHex, setKeyHex] = useState('')
   const fadeAnim = useRef(new RNAnimated.Value(1)).current
@@ -69,15 +68,15 @@ export default function Onboarding() {
       />
 
       {/* Decorative circles */}
-      <View style={[styles.circle, styles.circle1]} />
-      <View style={[styles.circle, styles.circle2]} />
+      <View style={[styles.circle, { width: width * 1.4, height: width * 1.4, top: -width * 0.5, left: -width * 0.2 }]} />
+      <View style={[styles.circle, { width: width * 0.9, height: width * 0.9, bottom: -width * 0.3, right: -width * 0.3 }]} />
 
       <SafeAreaView style={styles.safeArea}>
         <RNAnimated.View style={[styles.content, { opacity: fadeAnim }]}>
 
           {/* Logo */}
           <View style={styles.logoRow}>
-            <Text style={styles.logo}>proxim</Text>
+            <Text style={styles.logo}>ConnectEdge</Text>
           </View>
 
           {/* Big icon */}
@@ -111,15 +110,22 @@ export default function Onboarding() {
             ))}
           </View>
 
-          {/* CTA */}
-          <Pressable
-            style={({ pressed }) => [styles.cta, pressed && { opacity: 0.88 }]}
-            onPress={advance}
-          >
-            <Text style={styles.ctaText}>
-              {step < SLIDES.length - 1 ? 'Continue' : 'Get started'}
-            </Text>
-          </Pressable>
+          {/* CTA + Skip */}
+          <View style={styles.ctaRow}>
+            <Pressable
+              style={({ pressed }) => [styles.cta, pressed && { opacity: 0.88 }]}
+              onPress={advance}
+            >
+              <Text style={styles.ctaText}>
+                {step < SLIDES.length - 1 ? 'Continue' : 'Get started'}
+              </Text>
+            </Pressable>
+            {step < SLIDES.length - 1 && (
+              <Pressable style={styles.skipBtn} onPress={() => router.replace('/profile-setup')}>
+                <Text style={styles.skipText}>Skip</Text>
+              </Pressable>
+            )}
+          </View>
 
           <Text style={styles.terms}>
             No account · No data uploaded · No location tracking
@@ -143,8 +149,6 @@ const styles = StyleSheet.create({
     borderRadius:    9999,
     backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  circle1: { width: W * 1.4, height: W * 1.4, top: -W * 0.5, left: -W * 0.2 },
-  circle2: { width: W * 0.9, height: W * 0.9, bottom: -W * 0.3, right: -W * 0.3 },
 
   content: {
     flex:           1,
@@ -231,6 +235,21 @@ const styles = StyleSheet.create({
     shadowOpacity:   0.2,
     shadowRadius:    12,
     elevation:       6,
+    flex:            1,
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  skipBtn: {
+    paddingVertical: spacing.md + 2,
+    alignItems:      'center',
+  },
+  skipText: {
+    ...typography.label,
+    fontSize: fontSizes.md,
+    color:    'rgba(255,255,255,0.6)',
   },
   ctaText: {
     ...typography.label,
