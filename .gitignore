@@ -26,8 +26,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Tool caches
+# Tool caches & IDE settings
 .qwen/
+.idea/
 
 # Environment files
 .env
