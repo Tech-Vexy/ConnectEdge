@@ -180,62 +180,6 @@ export default function ProfileView({ activeTab, onTabChange }: {
             <Text style={styles.statusHint}>Gossiped to nearby peers over Bluetooth & Wi-Fi</Text>
           </View>
 
-          {/* Verification status */}
-          {appConfig.verify.enabled ? (
-            <Pressable
-              style={styles.verifyCard}
-              onPress={() => router.push('/verify')}
-            >
-              {myBadge ? (
-                <View style={styles.verifyCardInner}>
-                  <View style={styles.verifyBadgeRow}>
-                    <Text style={styles.verifyIcon}>
-                      {TIER_ICONS[myBadge.tier as keyof typeof TIER_ICONS]}
-                    </Text>
-                    <View style={styles.verifyInfo}>
-                      <Text style={styles.verifyTitle}>
-                        {TIER_LABELS[myBadge.tier as keyof typeof TIER_LABELS]}
-                      </Text>
-                      <Text style={styles.verifyInstitution}>{myBadge.institution}</Text>
-                    </View>
-                    <View style={styles.verifiedPill}>
-                      <Text style={styles.verifiedPillText}>Verified</Text>
-                    </View>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.verifyCardInner}>
-                  <View style={styles.verifyBadgeRow}>
-                    <View style={styles.verifyIconUnverified}>
-                      <Text style={{ fontSize: 20 }}>✓</Text>
-                    </View>
-                    <View style={styles.verifyInfo}>
-                      <Text style={styles.verifyTitle}>Get verified</Text>
-                      <Text style={styles.verifyInstitution}>
-                        Prove you're a real student — privately
-                      </Text>
-                    </View>
-                    <Text style={styles.verifyChevron}>›</Text>
-                  </View>
-                </View>
-              )}
-            </Pressable>
-          ) : (
-            <View style={styles.verifyCard}>
-              <View style={styles.verifyCardInner}>
-                <View style={styles.verifyBadgeRow}>
-                  <View style={styles.verifyIconUnverified}>
-                    <Text style={{ fontSize: 20 }}>✓</Text>
-                  </View>
-                  <View style={styles.verifyInfo}>
-                    <Text style={styles.verifyTitle}>Verification disabled</Text>
-                    <Text style={styles.verifyInstitution}>Running in P2P-only mode</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          )}
-
           {/* Stats */}
           <View style={styles.statsRow}>
             <StatCard label="Nearby peers" value={peerCount.toString()} />

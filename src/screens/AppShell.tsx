@@ -18,35 +18,38 @@ export default function AppShell() {
   return (
     <View style={styles.container}>
       {/* Discover always mounted — runs the P2P node */}
-      <View style={[styles.screen, activeTab === 'discover' && styles.visible]}>
-        <Discover   activeTab={activeTab} onTabChange={setActiveTab} />
+      <View
+        style={[styles.screen, activeTab === 'discover' && styles.visible]}
+        pointerEvents={activeTab === 'discover' ? 'auto' : 'none'}
+      >
+        <Discover activeTab={activeTab} onTabChange={setActiveTab} />
       </View>
 
       {/* Social Feed / Pulse Tab */}
       {activeTab === 'feed' && (
         <View style={styles.visibleScreen}>
-          <Feed       activeTab={activeTab} onTabChange={setActiveTab} />
+          <Feed activeTab={activeTab} onTabChange={setActiveTab} />
         </View>
       )}
 
       {/* Community Hubs & Events Tab */}
       {activeTab === 'hubs' && (
         <View style={styles.visibleScreen}>
-          <Hubs       activeTab={activeTab} onTabChange={setActiveTab} />
+          <Hubs activeTab={activeTab} onTabChange={setActiveTab} />
         </View>
       )}
 
       {/* Connections / Matches Tab */}
       {activeTab === 'matches' && (
         <View style={styles.visibleScreen}>
-          <Matches    activeTab={activeTab} onTabChange={setActiveTab} />
+          <Matches activeTab={activeTab} onTabChange={setActiveTab} />
         </View>
       )}
 
       {/* Messages / Encrypted Chats Tab */}
       {activeTab === 'messages' && (
         <View style={styles.visibleScreen}>
-          <Messages   activeTab={activeTab} onTabChange={setActiveTab} />
+          <Messages activeTab={activeTab} onTabChange={setActiveTab} />
         </View>
       )}
 
@@ -64,12 +67,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   screen: {
     ...StyleSheet.absoluteFillObject,
-    opacity:          0,
-    pointerEvents:    'none' as any,
+    opacity: 0,
   },
   visible: {
-    opacity:          1,
-    pointerEvents:    'auto' as any,
+    opacity: 1,
   },
   visibleScreen: {
     ...StyleSheet.absoluteFillObject,
