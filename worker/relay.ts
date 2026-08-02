@@ -9,6 +9,10 @@
  *   - Zero central user database or identity tracking
  */
 
+declare global {
+  type KVNamespace = any
+}
+
 export interface Env {
   RELAY_STORE: KVNamespace
 }
