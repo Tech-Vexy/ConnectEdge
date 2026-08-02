@@ -6,6 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
+import { router } from 'expo-router'
 import { useStore } from '../store'
 import { TabBar, type TabId } from '../components/TabBar'
 import { PostCard } from '../components/PostCard'
@@ -19,7 +20,7 @@ export default function Feed({ activeTab, onTabChange }: {
   activeTab: TabId
   onTabChange: (t: TabId) => void
 }) {
-  const { posts, createPost, likePost, activeSocialMode, setSocialMode } = useStore()
+  const { posts, createPost, likePost, activeSocialMode, setSocialMode, openChat } = useStore()
 
   const [modalVisible, setModalVisible]       = useState(false)
   const [newContent, setNewContent]           = useState('')
@@ -32,6 +33,12 @@ export default function Feed({ activeTab, onTabChange }: {
   const postList = Array.from(posts.values())
     .filter(p => activeSocialMode === 'all' || p.mode === 'all' || p.mode === activeSocialMode)
     .sort((a, b) => b.timestamp - a.timestamp)
+
+  const handleReplyPrivate = (authorPeerId: string) => {
+    HapticFeedback.light()
+    openChat(authorPeerId)
+    router.push('/chat')
+  }
 
   const handlePickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -113,6 +120,7 @@ export default function Feed({ activeTab, onTabChange }: {
             <PostCard
               post={item}
               onLike={likePost}
+              onComment={() => handleReplyPrivate(item.authorPeerId)}
               onMediaPress={uri => setActiveViewerUri(uri)}
             />
           )}

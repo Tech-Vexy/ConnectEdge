@@ -407,7 +407,22 @@ export const useStore = create<AppStore>((set, get) => ({
     const msg = await connectEdgeNode.sendMessage(toPeerId, text)
     get().addMessage(toPeerId, msg)
   },
-  openChat:  (peerId) => set({ activeChat: peerId }),
+  openChat:  (peerId) => set(state => {
+    const matches = new Map(state.matches)
+    if (!matches.has(peerId)) {
+      const peer = state.peers.get(peerId)
+      const syntheticMatch: Match = {
+        peerId,
+        displayName: peer?.displayName || 'Peer ' + peerId.slice(0, 6),
+        matchedAt: Date.now(),
+        sharedTags: peer?.interestTags || [],
+        compatibilityScore: state.scores.get(peerId) ?? 80,
+        connectionType: 'friend',
+      }
+      matches.set(peerId, syntheticMatch)
+    }
+    return { activeChat: peerId, matches }
+  }),
   closeChat: ()       => set({ activeChat: null }),
 
   // ── Photos ─────────────────────────────────────────────────────────────────

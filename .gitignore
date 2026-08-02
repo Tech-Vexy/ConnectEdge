@@ -11,8 +11,11 @@ web-build/
 android/
 ios/
 
+# Keystores & Signing Keys
+*.keystore
+*.jks
+
 # Wrangler / Cloudflare Worker directories
-worker/.wrangler/
 worker/dist/
 worker/node_modules/
 
