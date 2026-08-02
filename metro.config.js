@@ -25,8 +25,12 @@ const sodiumCjs = {
 }
 // expo-haptics type resolution issue workaround
 const hapticsTypes = path.join(nm, 'expo-haptics/build/Haptics.types.js')
+const cryptoPolyfillPath = path.join(__dirname, 'src/lib/crypto-polyfill.js')
 const defaultResolveRequest = config.resolver.resolveRequest
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (moduleName === 'crypto' || moduleName === 'node:crypto') {
+    return { type: 'sourceFile', filePath: cryptoPolyfillPath }
+  }
   if (sodiumCjs[moduleName]) {
     return { type: 'sourceFile', filePath: sodiumCjs[moduleName] }
   }
@@ -40,10 +44,11 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 // libsodium-wrappers ships a .wasm file that Metro needs to serve as an asset
 config.resolver.assetExts.push('wasm')
 
-// Alias node's 'crypto' to expo-crypto for any transitive deps that import it
+// Alias node's 'crypto' to cryptoPolyfill for any transitive deps that import it
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  crypto: require.resolve('expo-crypto'),
+  crypto: cryptoPolyfillPath,
+  'node:crypto': cryptoPolyfillPath,
   stream: require.resolve('readable-stream'),
   buffer: require.resolve('buffer'),
   // Add more Node.js core module polyfills

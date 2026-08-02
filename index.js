@@ -6,6 +6,14 @@ console.log('[ConnectEdge] Loading polyfills...');
 
 // 1. Crypto polyfill for secure random number generation (required by Hermes)
 import 'react-native-get-random-values';
+import cryptoPolyfill from './src/lib/crypto-polyfill';
+if (typeof global.crypto === 'undefined') {
+  global.crypto = cryptoPolyfill;
+} else {
+  if (!global.crypto.randomUUID) global.crypto.randomUUID = cryptoPolyfill.randomUUID;
+  if (!global.crypto.createHash) global.crypto.createHash = cryptoPolyfill.createHash;
+  if (!global.crypto.randomBytes) global.crypto.randomBytes = cryptoPolyfill.randomBytes;
+}
 console.log('[ConnectEdge] ✓ Crypto polyfill loaded');
 
 // 2. Base64 polyfill (required before Buffer to avoid QuickBase64 native module)

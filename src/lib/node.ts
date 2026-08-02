@@ -508,7 +508,7 @@ export class ConnectEdgeNode {
 
   async sendMessage(toPeerId: string, text: string): Promise<ChatMessage> {
     const msg: ChatMessage = {
-      id:   crypto.randomUUID(),
+      id:   (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) ? globalThis.crypto.randomUUID() : Math.random().toString(36).slice(2),
       from: this.profile.peerId,
       text,
       ts:   Date.now(),
