@@ -1,12 +1,10 @@
-// relay-poll.ts — relay polling, FCM integration, background delivery
+// relay-poll.ts — relay polling and local notifications for ConnectEdge
 //
-// Delivery modes (in priority order):
-//   1. FCM push → device wakes → app polls → local notification  (best, instant)
-//   2. Foreground poller every 30s (app open, no FCM needed)
-//   3. BackgroundFetch every ~15min (fallback if FCM fails)
+// Delivery modes:
+//   1. Foreground poller every 30s (app open)
+//   2. BackgroundFetch every ~15min (app backgrounded)
 //
 // RelayItem is the union type for everything the relay can deliver.
-// FCM carries NO content — only a data-only wake signal.
 // All notification content is generated locally after decryption.
 
 import * as BackgroundFetch from 'expo-background-fetch'
@@ -216,7 +214,7 @@ async function buildAuthHeaders(
   }
 }
 
-// ─── Queue (shared between background task + FCM handler) ─────────────────────
+// ─── Queue (shared between background task + poller) ──────────────────────────
 
 export async function enqueueItems(items: RelayItem[]): Promise<void> {
   if (items.length === 0) return

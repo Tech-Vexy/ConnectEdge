@@ -1,4 +1,4 @@
-# ConnectEdge Relay Worker — offline message delivery + FCM push dispatch
+# ConnectEdge Relay Worker — offline encrypted message delivery
 name = "connectedge-relay"
 main = "relay.ts"
 compatibility_date = "2024-09-01"
@@ -6,11 +6,3 @@ compatibility_date = "2024-09-01"
 [[kv_namespaces]]
 binding = "RELAY_STORE"
 id = "cef8f8095d574fa19a1400e26f5df1c9"
-
-[vars]
-FCM_PROJECT_ID = "connectedge-7a9a9"
-
-# wrangler secret put FCM_SERVICE_ACCOUNT_JSON --config wrangler.toml
-
-# [limits]
-# cpu_ms = 50
