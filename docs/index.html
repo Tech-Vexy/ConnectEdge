@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ConnectEdge — Privacy-First P2P Social Platform</title>
+  <meta name="description" content="Decentralized, privacy-first peer-to-peer social platform for Dating, Friendship, and Professional Networking with E2E encryption." />
+
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #0A0C14;
+      --bg-card: rgba(22, 26, 40, 0.7);
+      --bg-card-hover: rgba(30, 36, 56, 0.85);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(255, 68, 88, 0.3);
+
+      --brand-primary: #FF4458;
+      --brand-secondary: #FF7854;
+      --accent-purple: #8A2BE2;
+      --accent-blue: #00F0FF;
+      --accent-green: #00FF88;
+
+      --text-main: #FFFFFF;
+      --text-muted: #A0A5BA;
+      --text-dim: #626880;
+
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(255, 68, 88, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 45%, rgba(138, 43, 226, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 50% 85%, rgba(0, 240, 255, 0.08) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header / Nav */
+    header {
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: rgba(10, 12, 20, 0.8);
+      border-bottom: 1px solid var(--border-card);
+    }
+
+    .nav-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-heading);
+      font-weight: 800;
+      font-size: 1.5rem;
+      color: #FFF;
+      text-decoration: none;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+      color: #FFF;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-main);
+    }
+
+    .btn-github {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 10px 20px;
+      border-radius: 99px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-github:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 100px 0 80px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 68, 88, 0.1);
+      border: 1px solid rgba(255, 68, 88, 0.3);
+      color: var(--brand-primary);
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-family: var(--font-heading);
+      font-size: 4rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #FF4458 0%, #FF7854 50%, #FFC107 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      max-width: 680px;
+      margin: 0 auto 40px;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      font-weight: 400;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+      color: #FFF;
+      padding: 16px 36px;
+      border-radius: 99px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.05rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(255, 68, 88, 0.35);
+      transition: all 0.25s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 40px rgba(255, 68, 88, 0.5);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 16px 32px;
+      border-radius: 99px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1.05rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.25s ease;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .meta-release {
+      margin-top: 16px;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* Mode Selector Banner */
+    .modes-banner {
+      padding: 60px 0;
+    }
+
+    .modes-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 24px;
+      padding: 40px;
+      backdrop-filter: blur(20px);
+    }
+
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 2.2rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .section-subtitle {
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 48px;
+    }
+
+    .modes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .mode-item {
+      background: rgba(10, 12, 20, 0.6);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 28px;
+      transition: all 0.3s ease;
+    }
+
+    .mode-item:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-4px);
+    }
+
+    .mode-icon {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+    }
+
+    .mode-item h3 {
+      font-family: var(--font-heading);
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+
+    .mode-item p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Grid Section */
+    .features-section {
+      padding: 80px 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      padding: 32px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    }
+
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-3px);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+
+    .card h3 {
+      font-family: var(--font-heading);
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    /* Architecture Visualizer */
+    .arch-section {
+      padding: 80px 0;
+    }
+
+    .arch-card {
+      background: linear-gradient(180deg, rgba(22, 26, 40, 0.8) 0%, rgba(10, 12, 20, 0.9) 100%);
+      border: 1px solid var(--border-card);
+      border-radius: 24px;
+      padding: 48px;
+      text-align: center;
+    }
+
+    .arch-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin: 40px 0 20px;
+    }
+
+    .arch-node {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-card);
+      padding: 20px 28px;
+      border-radius: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--accent-blue);
+    }
+
+    .arch-arrow {
+      color: var(--text-dim);
+      font-size: 1.5rem;
+    }
+
+    /* Call to Action */
+    .cta-section {
+      padding: 100px 0;
+      text-align: center;
+    }
+
+    .cta-card {
+      background: linear-gradient(135deg, rgba(255, 68, 88, 0.15), rgba(138, 43, 226, 0.15));
+      border: 1px solid rgba(255, 68, 88, 0.3);
+      border-radius: 32px;
+      padding: 64px 32px;
+      position: relative;
+    }
+
+    .cta-card h2 {
+      font-family: var(--font-heading);
+      font-size: 2.8rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .cta-card p {
+      color: var(--text-muted);
+      max-width: 540px;
+      margin: 0 auto 36px;
+      font-size: 1.1rem;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-card);
+      padding: 40px 0;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--text-main);
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.8rem; }
+      .nav-links { display: none; }
+      .arch-diagram { flex-direction: column; }
+      .arch-arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header>
+    <div class="container nav-wrapper">
+      <a href="#" class="logo">
+        ConnectEdge <span class="logo-badge">v0.1.0</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#modes">Modes</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+        <li><a href="#architecture">P2P Spec</a></li>
+      </ul>
+      <a href="https://github.com/Tech-Vexy/ConnectEdge" target="_blank" class="btn-github">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        GitHub Repository
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-pill">
+        🔒 100% Serverless · Zero Tracking · P2P Mesh Network
+      </div>
+      <h1>
+        Connect Nearby Peers.<br />
+        <span class="gradient-text">Zero Servers. Total Privacy.</span>
+      </h1>
+      <p>
+        ConnectEdge is a next-generation decentralized social platform for local dating, friendship, and professional networking powered by Bluetooth BLE, Wi-Fi mesh, and E2E encryption.
+      </p>
+
+      <div class="hero-actions">
+        <a href="https://github.com/Tech-Vexy/ConnectEdge/releases/latest/download/app-release.apk" class="btn-primary" id="download-apk">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download Android APK (v0.1.0)
+        </a>
+        <a href="https://github.com/Tech-Vexy/ConnectEdge/releases" target="_blank" class="btn-secondary">
+          View GitHub Releases
+        </a>
+      </div>
+      <div class="meta-release">
+        Signed Release APK · SHA-256 Verified · Android 9.0+ (API 28+)
+      </div>
+    </div>
+  </section>
+
+  <!-- Social Modes Banner -->
+  <section class="modes-banner" id="modes">
+    <div class="container">
+      <div class="modes-card">
+        <h2 class="section-title">One App. Three Social Lens Modes.</h2>
+        <p class="section-subtitle">
+          Switch your social lens instantly with a single tap. ConnectEdge adapts your discovery deck, algorithm, and posts to your current intent.
+        </p>
+
+        <div class="modes-grid">
+          <div class="mode-item">
+            <div class="mode-icon">💕</div>
+            <h3>Dating Mode</h3>
+            <p>Romantic match discovery with private double-blind likes, ZK identity commitments, and compatibility scoring.</p>
+          </div>
+          <div class="mode-item">
+            <div class="mode-icon">🤝</div>
+            <h3>Friends Mode</h3>
+            <p>Find local hangout buddies, coffee partners, fitness buddies, and weekend adventure squads in your area.</p>
+          </div>
+          <div class="mode-item">
+            <div class="mode-icon">💼</div>
+            <h3>Networking Mode</h3>
+            <p>Connect with local tech builders, startup co-founders, software developers, and professional collaborators.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Feature Grid -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <h2 class="section-title">Engineered for Decentralized Freedom</h2>
+      <p class="section-subtitle">Every feature is designed from the ground up without central control, ad trackers, or corporate servers.</p>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <h3>P2P Pulse Feed</h3>
+          <p>Broadcast micro-posts, ask questions, or invite nearby peers for coffee over decentralized libp2p gossipsub (`connectedge:posts`).</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">📷</div>
+          <h3>Rich Media & Lightbox</h3>
+          <p>Attach photo media directly to posts and chat threads. Tap any image to view in a high-resolution dark mode lightbox overlay.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">🏰</div>
+          <h3>Interest Hubs & Local Events</h3>
+          <p>Join local P2P interest hubs (*Campus Tech Builders*, *Weekend Hikers*) or host local hangouts with live RSVP management.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">🔒</div>
+          <h3>End-to-End Encrypted Chat</h3>
+          <p>1-on-1 direct messaging secured via `libsodium` authenticated `crypto_box` streams. Zero plaintext leaves your device.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">📡</div>
+          <h3>Bluetooth BLE & Mesh Radar</h3>
+          <p>Discover nearby peers continuously in real-time using low-energy Bluetooth beaconing and local Wi-Fi WebSocket mesh nodes.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">🎓</div>
+          <h3>Zero-Knowledge Campus Badges</h3>
+          <p>Prove student or alumni affiliation with university email domains via ZK Ed25519 signatures without revealing your identity.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Visualizer -->
+  <section class="arch-section" id="architecture">
+    <div class="container">
+      <div class="arch-card">
+        <h2 class="section-title">Zero Central Database Architecture</h2>
+        <p class="section-subtitle">Your keys, profiles, and messages stay on your physical phone. No central server ever sees your data.</p>
+
+        <div class="arch-diagram">
+          <div class="arch-node">📱 Peer A (Device)</div>
+          <div class="arch-arrow">⟷ [ BLE / Wi-Fi Mesh ] ⟷</div>
+          <div class="arch-node">📱 Peer B (Device)</div>
+          <div class="arch-arrow">☁️ (Offline Fallback)</div>
+          <div class="arch-node">📦 Sealed Box Relay</div>
+        </div>
+
+        <p style="color: var(--text-dim); font-size: 0.9rem; margin-top: 20px;">
+          * When recipient is offline, encrypted sealed box envelopes are temporarily stored on Cloudflare Worker for max 24 hours before auto-expiring.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call To Action -->
+  <section class="cta-section" id="download">
+    <div class="container">
+      <div class="cta-card">
+        <h2>Experience True P2P Socializing</h2>
+        <p>Download the production-signed release APK directly from GitHub and connect with peers nearby today.</p>
+        <a href="https://github.com/Tech-Vexy/ConnectEdge/releases/latest/download/app-release.apk" class="btn-primary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download Signed Release APK
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>ConnectEdge · Built for Privacy & Peer-to-Peer Freedom · <a href="https://github.com/Tech-Vexy/ConnectEdge" target="_blank">GitHub Releases</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
